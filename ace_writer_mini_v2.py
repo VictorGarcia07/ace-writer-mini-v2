@@ -49,7 +49,7 @@ Tu tarea es redactar el subtema titulado **{subtema}**, que forma parte del cap�
 
 Redactá el texto directamente a continuación, en tono técnico claro, orientado a entrenadores profesionales, con ejemplos prácticos y subtítulos."""
         with st.spinner("Generando contenido con GPT..."):
-            client = openai.OpenAI()
+            client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
             response = client.chat.completions.create(
                 model="gpt-4",
                 messages=[
