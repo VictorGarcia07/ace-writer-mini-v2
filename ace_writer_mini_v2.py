@@ -35,7 +35,7 @@ if df_refs is not None and capitulo and subtema:
         referencias = "\n".join([
             f"{row['Referencia (APA 7)']}" for _, row in df_refs.iterrows() if 'Referencia (APA 7)' in row
         ])
-        prompt = f"""Actuás como redactor científico del Proyecto eBooks ACE.
+        base_prompt = f"""Actuás como redactor científico del Proyecto eBooks ACE.
 Tu tarea es redactar el subtema titulado **{subtema}**, que forma parte del capítulo **{capitulo}** del eBook ACE.
 
 📌 Condiciones obligatorias:
@@ -54,12 +54,32 @@ Redactá el texto directamente a continuación, en tono técnico claro, orientad
                 model="gpt-4",
                 messages=[
                     {"role": "system", "content": "Sos un redactor técnico de contenidos científicos sobre entrenamiento."},
-                    {"role": "user", "content": prompt}
+                    {"role": "user", "content": base_prompt}
                 ],
                 temperature=0.7,
                 max_tokens=3200
             )
             texto = response.choices[0].message.content
+
+            # Verificación de extensión mínima
+            if len(texto.split()) < 1500:
+                extend_prompt = f"""El siguiente texto generado está incompleto o es demasiado corto ({len(texto.split())} palabras).
+Tu tarea es **ampliarlo hasta alcanzar un mínimo de 1500 palabras reales**, sin repetir contenido, profundizando ideas, dando más ejemplos y desarrollando mejor la conclusión:
+
+TEXTO ORIGINAL:
+{texto}
+"""
+                st.warning(f"Texto corto detectado ({len(texto.split())} palabras). Solicitando ampliación...")
+                extension = client.chat.completions.create(
+                    model="gpt-4",
+                    messages=[
+                        {"role": "system", "content": "Sos un redactor técnico de contenidos científicos sobre entrenamiento."},
+                        {"role": "user", "content": extend_prompt}
+                    ],
+                    temperature=0.7,
+                    max_tokens=2000
+                )
+                texto = extension.choices[0].message.content
             st.success("✅ Subtema generado con éxito")
             st.text_area("Redactá aquí el contenido del subtema (mínimo 1500 palabras)", value=texto, height=600, key="final_text")
 
