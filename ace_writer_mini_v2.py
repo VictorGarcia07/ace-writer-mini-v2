@@ -35,8 +35,7 @@ if df_refs is not None and capitulo and subtema:
         referencias = "\n".join([
             f"{row['Referencia (APA 7)']}" for _, row in df_refs.iterrows() if 'Referencia (APA 7)' in row
         ])
-        prompt = f"""
-Actuás como redactor científico del Proyecto eBooks ACE.
+        prompt = f"""Actuás como redactor científico del Proyecto eBooks ACE.
 Tu tarea es redactar el subtema titulado **{subtema}**, que forma parte del capítulo **{capitulo}** del eBook ACE.
 
 📌 Condiciones obligatorias:
@@ -48,11 +47,10 @@ Tu tarea es redactar el subtema titulado **{subtema}**, que forma parte del cap�
 📚 Lista de referencias válidas:
 {referencias}
 
-Redactá el texto directamente a continuación, en tono técnico claro, orientado a entrenadores profesionales, con ejemplos prácticos y subtítulos.
-"""
+Redactá el texto directamente a continuación, en tono técnico claro, orientado a entrenadores profesionales, con ejemplos prácticos y subtítulos."""
         with st.spinner("Generando contenido con GPT..."):
-            openai.api_key = os.getenv("OPENAI_API_KEY")
-            response = openai.ChatCompletion.create(
+            client = openai.OpenAI()
+            response = client.chat.completions.create(
                 model="gpt-4",
                 messages=[
                     {"role": "system", "content": "Sos un redactor técnico de contenidos científicos sobre entrenamiento."},
