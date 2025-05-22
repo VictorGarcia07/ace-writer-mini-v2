@@ -56,7 +56,8 @@ Redactá el texto directamente a continuación, en tono técnico claro, orientad
                     {"role": "system", "content": "Sos un redactor técnico de contenidos científicos sobre entrenamiento."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.7
+                temperature=0.7,
+                max_tokens=3200
             )
             texto = response.choices[0].message.content
             st.success("✅ Subtema generado con éxito")
@@ -69,7 +70,7 @@ st.write(f"🔢 Palabras: {palabras} / 1500 mínimo")
 
 if df_refs is not None and texto:
     citas_encontradas = []
-    for autor in df_refs['Autor'].dropna().unique():
+    for autor in df_refs['Referencia (APA 7)'].dropna().unique():
         if autor in texto:
             citas_encontradas.append(autor)
     st.write(f"📎 Citas usadas: {len(citas_encontradas)}")
