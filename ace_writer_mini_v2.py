@@ -24,7 +24,7 @@ if "final_text" not in st.session_state:
     st.session_state.final_text = ""
 
 st.header(f"Subtema: {subtema}")
-st.text_area("Redactá aquí el contenido del subtema", height=600, value=st.session_state.final_text, key="final_text_display")
+st.text_area("Redactá aquí el contenido del subtema (mínimo 1500 palabras)", height=600, value=st.session_state.final_text, key="final_text_display")
 
 if df_refs is not None and capitulo and subtema:
     if st.button("✍️ Generar redacción del subtema"):
@@ -38,7 +38,7 @@ Tu tarea es redactar el subtema titulado **{subtema}**, que forma parte del cap�
 – El texto debe tener mínimo **1500 palabras reales**
 – Incluir al menos **1 recurso visual sugerido cada 500 palabras**
 – Utilizar **solo** las referencias incluidas a continuación
-– NO incluyas la sección final de referencias, será añadida automáticamente
+– Cerrar con una sección de referencias en formato **APA 7**, solo con las fuentes citadas realmente en el cuerpo
 
 📚 Lista de referencias válidas:
 {referencias}
@@ -57,24 +57,42 @@ Redactá el texto directamente a continuación, en tono técnico claro, orientad
                 max_tokens=3200
             )
             texto = response.choices[0].message.content
+
+            if len(texto.split()) < 1500:
+                extend_prompt = f"""El siguiente texto está incompleto o es demasiado corto ({len(texto.split())} palabras).
+Extendelo hasta alcanzar al menos 1500 palabras, sin repetir ideas, profundizando contenido y ampliando ejemplos.
+
+TEXTO ORIGINAL:
+{texto}"""
+                st.warning("Solicitando ampliación...")
+                extension = client.chat.completions.create(
+                    model="gpt-4",
+                    messages=[
+                        {"role": "system", "content": "Sos un redactor técnico de contenidos científicos sobre entrenamiento."},
+                        {"role": "user", "content": extend_prompt}
+                    ],
+                    temperature=0.7,
+                    max_tokens=2000
+                )
+                texto = extension.choices[0].message.content
+
             st.session_state.final_text = texto
-            st.success("✅ Subtema generado con éxito")
+            st.success("✅ Subtema generado y almacenado con éxito")
 
-# 🔁 Botón para generar sección de referencias APA desde la tabla cargada
-if st.button("🔁 Añadir sección de Referencias en APA 7"):
-    if df_refs is not None and st.session_state.final_text:
-        citas_en_texto = []
-        for autor in df_refs['Referencia (APA 7)'].dropna().unique():
-            apellido = autor.split(',')[0]
-            if apellido in st.session_state.final_text:
-                citas_en_texto.append(autor)
-        if citas_en_texto:
-            st.session_state.final_text += "\n\n**Referencias**\n" + "\n".join(sorted(citas_en_texto))
-            st.success(f"Se añadieron {len(citas_en_texto)} referencias APA al final del texto.")
-        else:
-            st.warning("No se encontraron coincidencias de autores para generar las referencias.")
+# ---------- Validación ----------
+st.subheader("✅ Validación automática")
+palabras = len(st.session_state.final_text.split())
+st.write(f"🔢 Palabras: {palabras} / 1500 mínimo")
 
-# Exportar a Word
+if df_refs is not None and st.session_state.final_text:
+    citas_encontradas = []
+    for autor in df_refs['Referencia (APA 7)'].dropna().unique():
+        if autor in st.session_state.final_text:
+            citas_encontradas.append(autor)
+    st.write(f"📎 Citas usadas: {len(citas_encontradas)}")
+    st.write("Autores citados:", citas_encontradas)
+
+# ---------- Exportar texto ----------
 st.subheader("📤 Exportar texto")
 col1, col2 = st.columns(2)
 with col1:
