@@ -6,10 +6,6 @@ from docx import Document
 st.set_page_config(page_title="ACE Writer v2 – Redacción Validada", layout="wide")
 st.title("✍️ ACE Writer v2 – Redacción Validada")
 
-# ----------------------------
-# Funciones de validación
-# ----------------------------
-
 def validar_plantilla_word(path_plantilla):
     required_styles = [
         'Heading 1', 'Heading 2', 'Heading 3', 'Normal',
@@ -36,7 +32,6 @@ def validar_tabla_referencias_con_checkboxes(df):
         return pd.DataFrame([{"Error": f"Faltan columnas: {', '.join(missing_columns)}"}]), [], []
 
     auto_incluidas, manuales = [], []
-    indices_incluir = []
     for i, row in df.iterrows():
         criticos = [col for col in ["Autores", "Año", "Título del artículo", "Journal", "DOI/URL"]
                     if pd.isna(row[col]) or str(row[col]).strip() == ""]
@@ -48,14 +43,10 @@ def validar_tabla_referencias_con_checkboxes(df):
             auto_incluidas.append((i + 1, row))
         else:
             manuales.append((i + 1, row))
-            indices_incluir.append(i)
 
     return None, auto_incluidas, manuales
 
-# ----------------------------
 # Interfaz principal
-# ----------------------------
-
 st.subheader("Paso 1️⃣ – Cargar Plantilla Word (.dotx)")
 plantilla_file = st.file_uploader("Subí tu plantilla Word con estilos predefinidos", type=["dotx"])
 
@@ -90,13 +81,21 @@ if plantilla_file:
 
                 st.write("🛠 Referencias con validación manual:")
                 refs_incluir = []
+                select_all = st.checkbox("☑️ Seleccionar todas las referencias manuales")
                 if refs_manual:
                     for i, row in refs_manual:
                         key = f"ref_manual_{i}"
-                        incluir = st.checkbox(f"{i}. {row['Autores']} ({row['Año']}) - {row['Título del artículo']}", key=key)
+                        incluir = st.checkbox(
+                            f"{i}. {row['Autores']} ({row['Año']}) - {row['Título del artículo']}",
+                            key=key,
+                            value=select_all
+                        )
                         if incluir:
                             refs_incluir.append((i, row))
 
                 if st.button("📝 Redactar capítulo"):
                     total_refs = refs_auto + refs_incluir
                     st.success(f"Redacción habilitada con {len(total_refs)} referencias.")
+                    subtitulo = st.text_input("✏️ Ingresá aquí el subtítulo del capítulo:")
+                    if subtitulo:
+                        st.info(f"Subtítulo capturado: **{subtitulo}**. Aquí iniciaría la redacción (simulada).")
