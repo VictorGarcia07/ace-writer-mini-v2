@@ -1,39 +1,57 @@
 
-# ✍️ ACE Writer Mini V2
+# ACE Writer Mini V2 – Versión Final (Exportación + Autocompletado)
 
-**ACE Writer Mini V2** es una aplicación web desarrollada con Streamlit para redactar subtemas de capítulos de eBooks técnicos en ciencias del ejercicio, utilizando exclusivamente referencias científicas validadas.
-
-## 🚀 ¿Qué hace esta app?
-- Permite seleccionar un capítulo y subtema del eBook.
-- Carga una tabla de referencias validadas (archivo `.csv`).
-- Ofrece un editor en tiempo real con contador de palabras (mínimo 1500).
-- Verifica que todas las citas utilizadas provengan de la tabla cargada.
-- Exporta el resultado en formato **Word (.docx)** o **Markdown (.md)**.
-- Muestra las referencias científicas disponibles para consulta.
-
-## 📁 Estructura del repositorio
-
-- `ace_writer_mini_v2.py`: script principal de la app Streamlit.
-- `tabla_ejemplo.csv`: tabla de referencias científicas en formato validado.
-
-## 🧪 Ejemplo de uso
-
-1. Subí tu tabla de referencias (debe incluir columnas: `Autor`, `Año`, `Título`, `DOI`).
-2. Escribí el texto del subtema respetando el mínimo de palabras.
-3. Insertá citas usando los apellidos de los autores.
-4. Al final, exportá tu trabajo como `.docx` o `.md`.
-
-## 🧠 Requisitos para correr localmente
-
-```bash
-pip install streamlit pandas python-docx
-streamlit run ace_writer_mini_v2.py
-```
-
-## 📦 Hecho para
-Proyecto **eBooks ACE** — Academia de Ciencias del Ejercicio  
-Desarrollado por Vity & Carol ✨
+Esta app de Streamlit permite a cualquier miembro del equipo (como Matías) generar subtemas completos para eBooks de ACE usando referencias científicas validadas.
 
 ---
 
-© 2025 ACE Capacitación — Todos los derechos reservados.
+## ✅ ¿Qué hace esta versión?
+
+- Genera automáticamente el contenido del subtema usando GPT-4
+- Detecta si el texto es demasiado corto (<1500 palabras) y lo amplía
+- Valida cuántas palabras reales tiene
+- Verifica si las referencias cargadas fueron citadas en el texto
+- Exporta directamente el resultado en formato `.docx` o `.md`
+
+---
+
+## 📦 ¿Qué archivo subir a GitHub?
+
+Subí y reemplazá este archivo:
+
+```
+ace_writer_mini_v2.py
+```
+
+💡 Debe estar en la raíz del repositorio.
+
+---
+
+## 📂 ¿Qué archivo subir a Streamlit Secrets?
+
+Desde `Manage App → Secrets`, agregá esto:
+
+```
+OPENAI_API_KEY = "sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+✅ Con comillas dobles `"..."`
+
+---
+
+## 📥 ¿Qué tiene que hacer Matías paso a paso?
+
+1. Cargar la tabla `.csv` de referencias validada
+2. Completar el nombre del capítulo y subtema
+3. Presionar **“✍️ Generar redacción del subtema”**
+4. Esperar a que se complete (incluso si necesita ampliación)
+5. Validar cantidad de palabras y autores citados
+6. Exportar el texto en `.docx` o `.md`
+
+---
+
+## 🧠 Notas técnicas para desarrolladores
+
+- El texto ampliado se guarda en `st.session_state.final_text`
+- Las referencias se buscan en la columna `"Referencia (APA 7)"`
+- Usa `max_tokens=3200` en la primera tanda y 2000 si se necesita extensión
