@@ -19,6 +19,9 @@ if "subtitulo" not in st.session_state:
 if "contenido_redactado" not in st.session_state:
     st.session_state["contenido_redactado"] = ""
 
+if "redaccion_iniciada" not in st.session_state:
+    st.session_state["redaccion_iniciada"] = False
+
 def validar_plantilla_word(path_plantilla):
     required_styles = [
         'Heading 1', 'Heading 2', 'Heading 3', 'Normal',
@@ -111,12 +114,15 @@ if plantilla_file:
                         st.session_state["mostrar_redaccion"] = True
                         st.session_state["referencias_finales"] = refs_auto + refs_incluir
 
-# Paso 3 – Redacción
 if st.session_state["mostrar_redaccion"]:
     st.subheader("Paso 3️⃣ – Redacción del subtema")
     st.session_state["subtitulo"] = st.text_input("✏️ Ingresá aquí el subtítulo del capítulo:", value=st.session_state["subtitulo"])
-    st.session_state["contenido_redactado"] = st.text_area("🧾 Redactá el contenido del subtema (mínimo 1500 palabras):", height=300)
 
+    if st.button("✒️ Iniciar redacción"):
+        st.session_state["redaccion_iniciada"] = True
+
+if st.session_state["redaccion_iniciada"]:
+    st.session_state["contenido_redactado"] = st.text_area("🧾 Redactá el contenido del subtema (mínimo 1500 palabras):", height=300)
     palabras = len(st.session_state["contenido_redactado"].split())
     st.markdown(f"📊 **Palabras escritas:** {palabras} / 1500 mínimo")
 
