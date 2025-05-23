@@ -94,7 +94,6 @@ Redactá con tono técnico claro, orientado a entrenadores, usando ejemplos prá
         st.error("Error al generar redacción: " + str(e))
         return ""
 
-            extra = extra.replace(base, "")
         return base + "\n\n" + extra
     except Exception as e:
         st.error("❌ Error al generar redacción: " + str(e))
@@ -119,7 +118,6 @@ if st.session_state.get("redaccion"):
     st.text_area("Texto", value=st.session_state["redaccion"], height=500)
     st.markdown(f"📊 Palabras: **{len(st.session_state['redaccion'].split())}**")
     st.markdown(f"📚 Citas detectadas: **{len(st.session_state['citadas'])}**")
-
 
 # Paso 5.1 – Botón para preguntar por qué se truncó
 if st.session_state.get("redaccion") and st.button("🤔 ¿Por qué se truncó este texto?"):
@@ -160,7 +158,6 @@ if st.session_state.get("redaccion") and st.button("➕ Generar nuevo subtema"):
     st.session_state["citadas"] = []
     st.session_state["subtema"] = ""
     st.rerun()
-
 
 # Paso 6 – Exportar a Word
 if st.session_state.get("redaccion"):
