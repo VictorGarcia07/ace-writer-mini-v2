@@ -97,6 +97,13 @@ Redactá con tono técnico claro, orientado a entrenadores, usando ejemplos prá
 – Usar solamente las referencias listadas arriba
 – No inventar citas o autores
 
+
+
+– No repetir ideas ni secciones ya presentadas
+– Si el contenido ya fue mencionado, no volver a desarrollarlo
+– Solo incluir referencias que fueron citadas explícitamente
+– Si el texto supera 1500 palabras pero repite contenido, acortarlo
+
 """
     try:
         client = openai.OpenAI(api_key=api_key)
