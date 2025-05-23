@@ -7,22 +7,22 @@ import tempfile
 import os
 import re
 
-st.set_page_config(page_title="ACE Writer Mini – Versión Final", layout="wide")
-st.title("🧠 ACE Writer Mini – Generador de capítulos científicos")
+st.set_page_config(page_title="ACE Writer Mini - Versión Final", layout="wide")
+st.title("🧠 ACE Writer Mini - Generador de capítulos científicos")
 
 # Inicialización de estado
 for key in ["clave_ok", "redaccion", "citadas", "subtema", "referencias_completas", "referencias_incompletas"]:
     if key not in st.session_state:
         st.session_state[key] = [] if "referencias" in key or key == "citadas" else ""
 
-# Paso 0 – API Key
+# Paso 0 - API Key
 api_key = st.text_input("🔐 Clave OpenAI", type="password")
 if api_key.startswith("sk-"):
     st.session_state["clave_ok"] = True
     st.success("✅ Clave válida")
 
-# Paso 1 – Plantilla Word
-st.subheader("Paso 1 – Subí tu plantilla Word (.dotx)")
+# Paso 1 - Plantilla Word
+st.subheader("Paso 1 - Subí tu plantilla Word (.dotx)")
 plantilla = st.file_uploader("📂 Plantilla Word", type=["dotx"])
 if plantilla:
     doc = Document(plantilla)
@@ -31,8 +31,8 @@ if plantilla:
     validacion = [{"Estilo": s, "Presente": "✅" if s in encontrados else "❌"} for s in requeridos]
     st.dataframe(pd.DataFrame(validacion))
 
-# Paso 2 – Cargar referencias
-st.subheader("Paso 2 – Subí tu archivo .csv con referencias")
+# Paso 2 - Cargar referencias
+st.subheader("Paso 2 - Subí tu archivo .csv con referencias")
 archivo_csv = st.file_uploader("📄 Archivo .csv", type=["csv"])
 referencias_seleccionadas = []
 
@@ -60,20 +60,20 @@ if archivo_csv:
             if seleccionar_todas or st.checkbox(ref, key=f"incomp_{i}"):
                 referencias_seleccionadas.append(ref)
 
-# Paso 3 – Ingreso del subtítulo
-st.subheader("Paso 3 – Ingresá el subtítulo del subtema")
+# Paso 3 - Ingreso del subtítulo
+st.subheader("Paso 3 - Ingresá el subtítulo del subtema")
 st.session_state["subtema"] = st.text_input("✏️ Subtema del capítulo", value=st.session_state["subtema"])
 
-# Paso 4 – Redacción con GPT
+# Paso 4 - Redacción con GPT
 def redactar_con_gpt(subtema, capitulo, referencias, api_key):
     prompt = f""" PROMPT PARA API DE GENERACIÓN DE TEXTO DEL EBOOK ACE\n\nActuás como un generador automático de contenido técnico para eBooks educativos en ciencias del ejercicio. Tu objetivo es redactar textos que cumplan con todos los criterios de calidad definidos por el Proyecto ACE, exceptuando la inclusión de Call to Actions (CTA), que no es necesaria en esta sección.\n\n- Instrucciones de mejora obligatoria:\n\nRevisa cada texto generado y asegurate de cumplir con los siguientes 11 criterios. Si algún punto no se cumple, ajustá automáticamente el texto:\n\n1. Estructura clara con títulos jerárquicos (#, ##, ###)\n2. Subtemas bien delimitados, con desarrollo lógico y progresivo.\n3. Evidencia científica actual, basada en revisiones sistemáticas o meta-análisis Q1/Q2 entre 2005 y 2025 (citar DOI).\n4. Referencias en formato APA 7, al final del texto.\n5. Sugerencias visuales útiles (diagramas, tablas, gráficos, infografías por sección).\n6. Tono técnico y cercano, dirigido al profesional o coach.\n7. Frases cortas y activas, evitando la voz pasiva.\n8. Storytelling breve, mediante ejemplos prácticos o casos reales.\n9. Aplicación práctica clara, indicando cómo el contenido se usa en el entrenamiento real.\n10. No redundancia ni relleno, con revisión activa de repeticiones conceptuales o verbales.\n11. Consistencia visual sugerida, alineada con el diseño limpio, profesional y la paleta ACE.\n\n Cada respuesta debe ser autoevaluada internamente con este checklist antes de entregarse.\n\nRedactá el subtema titulado: {subtema}\nCapítulo: {capitulo}\n\n📚 Lista de referencias válidas:\n{chr(10).join(referencias)}\n\n"""
 Tu tarea es redactar el subtema titulado "{subtema}", parte del capítulo "{capitulo}" de un e-book científico.
 
 - Requisitos:
-– Redactar un texto científicamente sólido y bien estructurado. El mínimo es de 1500 palabras reales, pero si el tema se agota correctamente con menos, se puede entregar así.
-– Incluir 1 sugerencia de recurso visual cada 500 palabras
-– Usar solo las referencias proporcionadas
-– Cerrar con sección de referencias APA 7, solo si fueron citadas
+- Redactar un texto científicamente sólido y bien estructurado. El mínimo es de 1500 palabras reales, pero si el tema se agota correctamente con menos, se puede entregar así.
+- Incluir 1 sugerencia de recurso visual cada 500 palabras
+- Usar solo las referencias proporcionadas
+- Cerrar con sección de referencias APA 7, solo si fueron citadas
 
 📚 Lista de referencias válidas:
 {chr(10).join(referencias)}
@@ -106,14 +106,14 @@ if st.button("🚀 Generar redacción"):
                 citas.append(ref)
         st.session_state["citadas"] = list(set(citas))
 
-# Paso 5 – Mostrar texto
+# Paso 5 - Mostrar texto
 if st.session_state.get("redaccion"):
     st.subheader("🧾 Redacción generada")
     st.text_area("Texto", value=st.session_state["redaccion"], height=500)
     st.markdown(f"📊 Palabras: **{len(st.session_state['redaccion'].split())}**")
     st.markdown(f"📚 Citas detectadas: **{len(st.session_state['citadas'])}**")
 
-# Paso 6 – Exportar a Word
+# Paso 6 - Exportar a Word
 if st.session_state.get("redaccion"):
     if st.button("💾 Exportar a Word"):
         doc = Document(plantilla) if plantilla else Document()
