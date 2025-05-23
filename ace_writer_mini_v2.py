@@ -40,10 +40,15 @@ if plantilla:
     validacion = [{"Estilo": s, "Presente": "✅" if s in encontrados else "❌"} for s in requeridos]
     st.dataframe(pd.DataFrame(validacion))
 
+
 # Paso 2 – Subir y seleccionar referencias
 st.subheader("Paso 2 – Subir y seleccionar referencias")
 archivo_csv = st.file_uploader("📄 Archivo .csv con referencias", type=["csv"])
 refs_dict = {}
+
+selected_refs = []
+completas = []
+incompletas = []
 
 if archivo_csv:
     df = pd.read_csv(archivo_csv)
@@ -51,11 +56,8 @@ if archivo_csv:
     missing_cols = [col for col in required_cols if col not in df.columns]
 
     if missing_cols:
-        st.error(f"❌ Faltan las siguientes columnas obligatorias en el CSV: {', '.join(missing_cols)}")
+        st.error(f"❌ Faltan columnas obligatorias: {', '.join(missing_cols)}")
     else:
-        completas = []
-        incompletas = []
-
         for i, row in df.iterrows():
             try:
                 ref_str = f"{row['Autores']} ({row['Año']}). {row['Título del artículo']}. {row['Journal']}."
@@ -68,37 +70,22 @@ if archivo_csv:
             except Exception as e:
                 incompletas.append((f"Error en fila {i}", str(e)))
 
-        st.session_state["referencias_completas"] = completas
-        st.session_state["referencias_incompletas"] = incompletas
+        # Cargar todas las completas automáticamente
+        for autor, ref in completas:
+            selected_refs.append(ref)
 
+        # Mostrar panel de selección para incompletas
         st.success(f"✅ {len(completas)} referencias completas encontradas")
         st.warning(f"⚠️ {len(incompletas)} referencias incompletas")
 
-        
-selected_refs = []
-if 'completas' not in locals():
-    completas = []
-if 'incompletas' not in locals():
-    incompletas = []
+        if incompletas:
+            st.markdown("### ✍️ Seleccioná manualmente si querés incluir alguna incompleta")
+            seleccionar_todas_incompletas = st.checkbox("Seleccionar todas las incompletas")
+            for i, (autor, ref) in enumerate(incompletas):
+                key = f"incomp_{i}_{hash(ref)}"
+                if seleccionar_todas_incompletas or st.checkbox(ref, key=key):
+                    selected_refs.append(ref)
 
-        st.markdown("### ✅ Seleccioná las referencias completas a usar")
-        for autor, ref in completas:
-            if st.checkbox(ref, key=f"comp_{autor}"):
-                selected_refs.append(ref)
-
-        
-st.markdown("### ✍️ Seleccioná manualmente si querés incluir alguna incompleta")
-seleccionar_todas_incompletas = st.checkbox("Seleccionar todas las incompletas")
-for i, (autor, ref) in enumerate(incompletas):
-    key = f'incomp_{i}_{hash(ref)}'
-    if seleccionar_todas_incompletas or st.checkbox(ref, key=key):
-        selected_refs.append(ref)
-
-        for autor, ref in incompletas:
-            if st.checkbox(ref, key=f"incomp_{autor}"):
-                selected_refs.append(ref)
-
-        referencias_formateadas = selected_refs
 
 # Paso 3 – Subtema
 st.subheader("Paso 3 – Escribí el subtítulo del subtema")
