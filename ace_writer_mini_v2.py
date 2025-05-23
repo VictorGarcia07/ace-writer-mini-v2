@@ -8,7 +8,7 @@ import time
 import re
 
 st.set_page_config(page_title="ACE Writer Mini V2 Reparado", layout="wide")
-st.title("🛠️ ACE Writer Mini – Versión Reparada con Referencias Manuales")
+st.title("🛠️ ACE Writer Mini – Versión Reparada con Verificación de Columnas")
 
 # Estado
 if "clave_ok" not in st.session_state:
@@ -47,34 +47,45 @@ refs_dict = {}
 
 if archivo_csv:
     df = pd.read_csv(archivo_csv)
-    completas = []
-    incompletas = []
+    required_cols = ["Autores", "Año", "Título del artículo", "Journal"]
+    missing_cols = [col for col in required_cols if col not in df.columns]
 
-    for i, row in df.iterrows():
-        ref_str = f"{row['Autores']} ({row['Año']}). {row['Título del artículo']}. {row['Journal']}. {row.get('DOI', '')}"
-        if all(pd.notna(row[c]) and str(row[c]).strip() != "" for c in ["Autores", "Año", "Título del artículo", "Journal", "DOI"]):
-            completas.append((row['Autores'], ref_str))
-        else:
-            incompletas.append((row['Autores'], ref_str))
+    if missing_cols:
+        st.error(f"❌ Faltan las siguientes columnas obligatorias en el CSV: {', '.join(missing_cols)}")
+    else:
+        completas = []
+        incompletas = []
 
-    st.session_state["referencias_completas"] = completas
-    st.session_state["referencias_incompletas"] = incompletas
+        for i, row in df.iterrows():
+            try:
+                ref_str = f"{row['Autores']} ({row['Año']}). {row['Título del artículo']}. {row['Journal']}."
+                if "DOI" in df.columns and pd.notna(row["DOI"]):
+                    ref_str += f" https://doi.org/{row['DOI']}"
+                if all(pd.notna(row[c]) and str(row[c]).strip() != "" for c in required_cols):
+                    completas.append((row['Autores'], ref_str))
+                else:
+                    incompletas.append((row['Autores'], ref_str))
+            except Exception as e:
+                incompletas.append((f"Error en fila {i}", str(e)))
 
-    st.success(f"✅ {len(completas)} referencias completas encontradas")
-    st.warning(f"⚠️ {len(incompletas)} referencias incompletas")
+        st.session_state["referencias_completas"] = completas
+        st.session_state["referencias_incompletas"] = incompletas
 
-    selected_refs = []
-    st.markdown("### ✅ Seleccioná las referencias completas a usar")
-    for autor, ref in completas:
-        if st.checkbox(ref, key=f"comp_{autor}"):
-            selected_refs.append(ref)
+        st.success(f"✅ {len(completas)} referencias completas encontradas")
+        st.warning(f"⚠️ {len(incompletas)} referencias incompletas")
 
-    st.markdown("### ✍️ Seleccioná manualmente si querés incluir alguna incompleta")
-    for autor, ref in incompletas:
-        if st.checkbox(ref, key=f"incomp_{autor}"):
-            selected_refs.append(ref)
+        selected_refs = []
+        st.markdown("### ✅ Seleccioná las referencias completas a usar")
+        for autor, ref in completas:
+            if st.checkbox(ref, key=f"comp_{autor}"):
+                selected_refs.append(ref)
 
-    referencias_formateadas = selected_refs
+        st.markdown("### ✍️ Seleccioná manualmente si querés incluir alguna incompleta")
+        for autor, ref in incompletas:
+            if st.checkbox(ref, key=f"incomp_{autor}"):
+                selected_refs.append(ref)
+
+        referencias_formateadas = selected_refs
 
 # Paso 3 – Subtema
 st.subheader("Paso 3 – Escribí el subtítulo del subtema")
@@ -147,7 +158,7 @@ if st.session_state["redaccion"]:
         doc = Document()
         doc.add_heading(st.session_state["subtema"], level=1)
         doc.add_paragraph(st.session_state["redaccion"])
-        ruta = "/mnt/data/ace_writer_mini_v2_reparado.docx"
+        ruta = "/mnt/data/ace_writer_mini_v2_reparado_columnas.py"
         doc.save(ruta)
         with open(ruta, "rb") as f:
-            st.download_button("📥 Descargar Word", data=f, file_name="ACEWriter_v2_reparado.docx")
+            st.download_button("📥 Descargar Word", data=f, file_name="ACEWriter_v2_reparado_columnas.docx")
