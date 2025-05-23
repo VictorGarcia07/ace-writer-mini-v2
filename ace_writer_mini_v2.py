@@ -66,7 +66,7 @@ st.session_state["subtema"] = st.text_input("✏️ Subtema del capítulo", valu
 
 # Paso 4 – Redacción con GPT
 def redactar_con_gpt(subtema, capitulo, referencias, api_key):
-    prompt = f"""Actuás como redactor científico del Proyecto eBooks ACE.
+    prompt = f"""🎯 PROMPT PARA API DE GENERACIÓN DE TEXTO DEL EBOOK ACE\n\nActuás como un generador automático de contenido técnico para eBooks educativos en ciencias del ejercicio. Tu objetivo es redactar textos que cumplan con todos los criterios de calidad definidos por el Proyecto ACE, exceptuando la inclusión de Call to Actions (CTA), que no es necesaria en esta sección.\n\n📌 Instrucciones de mejora obligatoria:\n\nRevisa cada texto generado y asegurate de cumplir con los siguientes 11 criterios. Si algún punto no se cumple, ajustá automáticamente el texto:\n\n1. Estructura clara con títulos jerárquicos (#, ##, ###)\n2. Subtemas bien delimitados, con desarrollo lógico y progresivo.\n3. Evidencia científica actual, basada en revisiones sistemáticas o meta-análisis Q1/Q2 entre 2005 y 2025 (citar DOI).\n4. Referencias en formato APA 7, al final del texto.\n5. Sugerencias visuales útiles (diagramas, tablas, gráficos, infografías por sección).\n6. Tono técnico y cercano, dirigido al profesional o coach.\n7. Frases cortas y activas, evitando la voz pasiva.\n8. Storytelling breve, mediante ejemplos prácticos o casos reales.\n9. Aplicación práctica clara, indicando cómo el contenido se usa en el entrenamiento real.\n10. No redundancia ni relleno, con revisión activa de repeticiones conceptuales o verbales.\n11. Consistencia visual sugerida, alineada con el diseño limpio, profesional y la paleta ACE.\n\n🔁 Cada respuesta debe ser autoevaluada internamente con este checklist antes de entregarse.\n\nRedactá el subtema titulado: {subtema}\nCapítulo: {capitulo}\n\n📚 Lista de referencias válidas:\n{chr(10).join(referencias)}\n\n"""
 Tu tarea es redactar el subtema titulado "{subtema}", parte del capítulo "{capitulo}" de un e-book científico.
 
 📌 Requisitos:
@@ -89,22 +89,7 @@ Redactá con tono técnico claro, orientado a entrenadores, usando ejemplos prá
                 temperature=0.7,
                 max_tokens=4096
             )
-        base = r1.choices[0].message.content
-        if len(base.split()) >= 1500:
-            return base
-
-        extend = f"Extendé este texto sin repetir ideas hasta superar 1500 palabras:\n\n{base}"
-        with st.spinner("🔁 Ampliando..."):
-            r2 = client.chat.completions.create(
-                model="gpt-4",
-                messages=[{"role": "user", "content": extend}],
-                temperature=0.7,
-                max_tokens=3000
-            )
-        extra = r2.choices[0].message.content
-        if base in extra:
-            extra = extra.replace(base, "")
-        return base + "\n\n" + extra
+        return r1.choices[0].message.content
     except Exception as e:
         st.error("❌ Error al generar redacción: " + str(e))
         return ""
