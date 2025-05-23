@@ -1,157 +1,128 @@
-
 import streamlit as st
 import pandas as pd
-import openai
-from docx import Document
-import tempfile
-import os
+import docx
+from docx.shared import Pt
+from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
+from io import BytesIO
+import re
+import tiktoken
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import streamlit.components.v1 as components
 
-st.set_page_config(page_title="ACE Writer Mini V37", layout="wide")
-st.title("✍️ ACE Writer Mini – V37 Estable (Con correcciones de redundancia y exportación)")
+# --- FUNCIONES AUXILIARES ---
+def contar_tokens(texto):
+    enc = tiktoken.encoding_for_model("gpt-4")
+    return len(enc.encode(texto))
 
-# ─────────────────────────────────────────────────────────────
-# INICIALIZACIÓN DE VARIABLES
-# ─────────────────────────────────────────────────────────────
-for key in ["clave_ok", "redaccion", "citadas", "subtema", "referencias_completas", "referencias_incompletas"]:
-    if key not in st.session_state:
-        st.session_state[key] = "" if key == "subtema" else []
+def contar_palabras(texto):
+    return len(texto.split())
 
-# ─────────────────────────────────────────────────────────────
-# PASO 0 – API KEY
-# ─────────────────────────────────────────────────────────────
-api_key = st.text_input("🔐 Clave OpenAI", type="password")
-if api_key.startswith("sk-"):
-    st.session_state["clave_ok"] = True
-    st.success("✅ Clave válida")
-else:
-    st.warning("🔑 Ingresá una clave válida para continuar")
+def detectar_redundancias(texto, umbral=0.85):
+    oraciones = re.split(r'(?<=[.!?])\s+', texto)
+    vectorizer = TfidfVectorizer().fit_transform(oraciones)
+    sim_matrix = cosine_similarity(vectorizer)
+    redundantes = set()
+    for i in range(len(sim_matrix)):
+        for j in range(i+1, len(sim_matrix)):
+            if sim_matrix[i, j] > umbral:
+                redundantes.add(oraciones[j])
+    return list(redundantes)
 
-# ─────────────────────────────────────────────────────────────
-# PASO 1 – PLANTILLA WORD
-# ─────────────────────────────────────────────────────────────
-st.subheader("Paso 1 – Cargar plantilla Word (.dotx)")
-plantilla = st.file_uploader("📂 Plantilla Word", type=["dotx"])
-if plantilla:
-    doc = Document(plantilla)
-    requeridos = ["Heading 1", "Heading 2", "Normal", "Reference"]
-    encontrados = [s.name for s in doc.styles]
-    resumen = [{"Estilo": s, "Presente": "✅" if s in encontrados else "❌"} for s in requeridos]
-    st.dataframe(pd.DataFrame(resumen))
+def validar_citas(tabla):
+    completas, incompletas = [], []
+    for _, fila in tabla.iterrows():
+        if pd.notnull(fila['DOI']) and pd.notnull(fila['Título del artículo']) and pd.notnull(fila['Journal']):
+            completas.append(fila)
+        else:
+            incompletas.append(fila)
+    return pd.DataFrame(completas), pd.DataFrame(incompletas)
 
-# ─────────────────────────────────────────────────────────────
-# PASO 2 – REFERENCIAS CSV
-# ─────────────────────────────────────────────────────────────
-st.subheader("Paso 2 – Cargar referencias (.csv)")
-archivo_csv = st.file_uploader("📄 Archivo .csv", type=["csv"])
-selected_refs = []
-if archivo_csv:
+def extraer_apellidos_citados(texto):
+    return list(set(re.findall(r'\(([^\)]+), \d{4}\)', texto)))
+
+def construir_referencias_apa(apellidos_usados, df_referencias):
+    referencias_usadas = df_referencias[df_referencias['Autores'].isin(apellidos_usados)]
+    referencias_apa = []
+    for _, fila in referencias_usadas.iterrows():
+        ref = f"{fila['Autores']} ({fila['Año']}). {fila['Título del artículo']}. {fila['Journal']}, {fila['Volumen']}, {fila['Páginas']}. {fila['DOI']}"
+        referencias_apa.append(ref)
+    return referencias_apa, len(referencias_apa)
+
+def exportar_a_word(texto, referencias, plantilla, nombre_archivo):
+    doc = docx.Document(plantilla)
+    doc.add_paragraph(texto)
+    doc.add_paragraph("\nAplicación práctica para el entrenador:")
+    doc.add_paragraph("(Completar bloque de aplicación práctica aquí.)")
+    doc.add_paragraph("\nReferencias:")
+    for ref in referencias:
+        doc.add_paragraph(ref, style='Normal')
+    buffer = BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    return buffer, doc
+
+def convertir_a_html(doc):
+    html = ""
+    for para in doc.paragraphs:
+        html += f"<p>{para.text}</p>"
+    return html
+
+# --- INTERFAZ PRINCIPAL ---
+st.title("AsyncWriter Mini V38")
+
+subtitulo = st.text_input("Subtítulo del tema (usado como nombre del archivo Word)")
+archivo_csv = st.file_uploader("Cargar archivo de referencias (.csv)", type="csv")
+plantilla_word = st.file_uploader("Cargar plantilla Word (.dotx)", type="dotx")
+texto_generado = st.text_area("Pega aquí el texto generado por GPT", height=300)
+
+if archivo_csv and plantilla_word and subtitulo:
     df = pd.read_csv(archivo_csv)
-    columnas = ["Autores", "Año", "Título del artículo", "Journal"]
-    if not all(col in df.columns for col in columnas):
-        st.error("❌ El CSV debe incluir columnas: Autores, Año, Título del artículo, Journal")
-    else:
-        completas, incompletas = [], []
-        for _, row in df.iterrows():
-            try:
-                if any(pd.isna(row.get(c)) or str(row.get(c)).strip() == "" for c in columnas):
-                    continue
-                ref = f"{row['Autores']} ({row['Año']}). {row['Título del artículo']}. {row['Journal']}."
-                if "DOI" in row and pd.notna(row["DOI"]):
-                    ref += f" https://doi.org/{row['DOI']}"
-                completas.append(ref)
-            except:
-                continue
-        st.success(f"✅ {len(completas)} referencias completas cargadas")
-        selected_refs.extend(completas)
+    completas, incompletas = validar_citas(df)
+    st.success(f"{len(completas)} referencias completas cargadas")
 
-# ─────────────────────────────────────────────────────────────
-# PASO 3 – SUBTEMA Y BOTÓN
-# ─────────────────────────────────────────────────────────────
-st.subheader("Paso 3 – Ingresá el subtítulo del subtema")
-st.session_state["subtema"] = st.text_input("✏️ Subtema", value=st.session_state["subtema"])
+    seleccionadas = []
+    if not incompletas.empty:
+        st.write("### Referencias incompletas disponibles para selección manual")
+        seleccionadas = st.multiselect("Selecciona referencias incompletas:", list(incompletas['Autores']), key="manual")
+        if st.button("Seleccionar todas las incompletas"):
+            seleccionadas = list(incompletas['Autores'])
 
-# ─────────────────────────────────────────────────────────────
-# GPT GENERACIÓN Y FILTROS
-# ─────────────────────────────────────────────────────────────
-def redactar_con_gpt(subtema, capitulo, referencias, api_key):
-    prompt = f"""Actuás como redactor científico del Proyecto eBooks ACE.
-Tu tarea es redactar el subtema titulado **{subtema}**, que forma parte del capítulo **{capitulo}** del eBook ACE.
+    referencias_validas = pd.concat([
+        completas,
+        incompletas[incompletas['Autores'].isin(seleccionadas)]
+    ])
 
-📌 Condiciones obligatorias:
-– El texto debe tener mínimo **1500 palabras reales**
-– Incluir al menos **1 recurso visual sugerido cada 500 palabras**
-– Utilizar **solo** las referencias incluidas a continuación
-– Cerrar con una sección de referencias en formato **APA 7**, solo con las fuentes citadas realmente en el cuerpo
+    if texto_generado:
+        token_count = contar_tokens(texto_generado)
+        word_count = contar_palabras(texto_generado)
+        st.write(f"Palabras totales del texto: {word_count}")
 
-📚 Lista de referencias válidas:
-{chr(10).join(referencias)}
+        if word_count < 1500:
+            st.warning("El texto tiene menos de 1500 palabras. Asegúrate de que haya agotado las fuentes o justifica su brevedad.")
 
-Redactá el texto directamente a continuación, en tono técnico claro, orientado a entrenadores profesionales, con ejemplos prácticos y subtítulos.
-"""
-    try:
-        client = openai.OpenAI(api_key=api_key)
-        with st.spinner("✍️ Redactando contenido inicial..."):
-            r1 = client.chat.completions.create(
-                model="gpt-4",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.7,
-                max_tokens=3500
-            )
-        base = r1.choices[0].message.content
-        if len(base.split()) >= 1500:
-            return base
+        if token_count > 4000:
+            st.error("El texto excede los 4000 tokens. Por favor, divídelo en partes.")
+        else:
+            redundancias = detectar_redundancias(texto_generado)
+            if redundancias:
+                st.warning(f"Se detectaron {len(redundancias)} posibles frases redundantes en el texto.")
+                with st.expander("Ver frases redundantes"):
+                    for r in redundancias:
+                        st.text(f"- {r}")
 
-        # Ampliación automática
-        extend = f"Ampliá este texto sin repetir ideas hasta alcanzar 1500 palabras:\n\n{base}"
-        with st.spinner("🔁 Solicitando ampliación..."):
-            r2 = client.chat.completions.create(
-                model="gpt-4",
-                messages=[{"role": "user", "content": extend}],
-                temperature=0.7,
-                max_tokens=3000
-            )
-        extra = r2.choices[0].message.content
+            apellidos_en_texto = extraer_apellidos_citados(texto_generado)
+            referencias_apa, usadas = construir_referencias_apa(apellidos_en_texto, referencias_validas)
 
-        # Eliminar redundancia
-        if base in extra:
-            extra = extra.replace(base, "")
-        return base + "\n\n" + extra
-    except Exception as e:
-        st.error("❌ Error al generar redacción: " + str(e))
-        return ""
+            st.write(f"Citas usadas: {usadas} de {len(referencias_validas)} disponibles")
 
-if st.button("🚀 Generar redacción"):
-    if st.session_state["clave_ok"] and st.session_state["subtema"] and selected_refs:
-        capitulo = "Capítulo generado automáticamente"
-        texto = redactar_con_gpt(st.session_state["subtema"], capitulo, selected_refs, api_key)
-        st.session_state["redaccion"] = texto
-        citas = []
-        for ref in selected_refs:
-            apellido = ref.split(",")[0]
-            if apellido.lower() in texto.lower():
-                citas.append(ref)
-        st.session_state["citadas"] = list(set(citas))
+            buffer_word, doc_preview = exportar_a_word(texto_generado, referencias_apa, plantilla_word, subtitulo)
 
-# ─────────────────────────────────────────────────────────────
-# MOSTRAR RESULTADOS Y EXPORTAR
-# ─────────────────────────────────────────────────────────────
-if st.session_state.get("redaccion"):
-    st.subheader("🧾 Redacción generada")
-    st.text_area("Texto", value=st.session_state["redaccion"], height=500)
-    st.markdown(f"📊 Palabras: **{len(st.session_state['redaccion'].split())}**")
-    st.markdown(f"📚 Citas detectadas: **{len(st.session_state['citadas'])}**")
+            st.subheader("Vista previa del documento:")
+            html_preview = convertir_a_html(doc_preview)
+            components.html(html_preview, height=500, scrolling=True)
 
-    if st.button("💾 Exportar a Word"):
-        doc = Document(plantilla) if plantilla else Document()
-        doc.add_heading(st.session_state["subtema"], level=1)
-        doc.add_paragraph(st.session_state["redaccion"])
-        doc.add_page_break()
-        doc.add_heading("Referencias citadas", level=2)
-        for ref in st.session_state["citadas"]:
-            doc.add_paragraph(ref)
-
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
-        doc.save(temp_file.name)
-        with open(temp_file.name, "rb") as f:
-            st.download_button("📥 Descargar Word", data=f, file_name="ACEWriter_v37.docx")
-        os.unlink(temp_file.name)
+            st.download_button("Descargar Word generado", data=buffer_word, file_name=f"{subtitulo}.docx")
+else:
+    st.info("Por favor, carga todos los elementos requeridos.")
