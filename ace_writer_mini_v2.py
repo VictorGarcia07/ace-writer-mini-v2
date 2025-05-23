@@ -75,6 +75,11 @@ if archivo_csv:
         st.warning(f"⚠️ {len(incompletas)} referencias incompletas")
 
         
+import hashlib
+
+def safe_key(prefix, content, index):
+    return f"{prefix}_{index}_{hashlib.md5(content.encode()).hexdigest()[:6]}"
+
 selected_refs = []
 if 'completas' not in locals():
     completas = []
@@ -85,7 +90,7 @@ if 'incompletas' not in locals():
 st.markdown("### ✅ Seleccioná las referencias completas a usar")
 seleccionar_todas_completas = st.checkbox("Seleccionar todas las completas")
 for i, (autor, ref) in enumerate(completas):
-    if seleccionar_todas_completas or st.checkbox(ref, key=f"comp_{i}"):
+    if seleccionar_todas_completas or st.checkbox(ref, key=safe_key("comp", ref, i)):
         selected_refs.append(ref)
 
         for autor, ref in completas:
@@ -96,7 +101,7 @@ for i, (autor, ref) in enumerate(completas):
 st.markdown("### ✍️ Seleccioná manualmente si querés incluir alguna incompleta")
 seleccionar_todas_incompletas = st.checkbox("Seleccionar todas las incompletas")
 for i, (autor, ref) in enumerate(incompletas):
-    if seleccionar_todas_incompletas or st.checkbox(ref, key=f"incomp_{i}"):
+    if seleccionar_todas_incompletas or st.checkbox(ref, key=safe_key("incomp", ref, i)):
         selected_refs.append(ref)
 
         for autor, ref in incompletas:
