@@ -119,6 +119,47 @@ if st.session_state.get("redaccion"):
     st.markdown(f"📊 Palabras: **{len(st.session_state['redaccion'].split())}**")
     st.markdown(f"📚 Citas detectadas: **{len(st.session_state['citadas'])}**")
 
+
+# Paso 5.1 – Botón para preguntar por qué se truncó
+if st.session_state.get("redaccion") and st.button("🤔 ¿Por qué se truncó este texto?"):
+    try:
+        analisis_prompt = f"""Actuás como un crítico técnico del equipo editorial de un eBook científico.
+Se te dio este texto generado por una IA con el objetivo de desarrollar un subtema de un capítulo, siguiendo normas académicas.
+
+Tu tarea es explicar por qué este texto se truncó con {len(st.session_state['redaccion'].split())} palabras.
+Explicá si fue por agotamiento de fuentes, por corte técnico, o por otra razón.
+Texto a analizar:
+""" + st.session_state["redaccion"]
+
+        r = openai.OpenAI(api_key=api_key).chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": analisis_prompt}],
+            temperature=0,
+            max_tokens=800
+        )
+        st.info(r.choices[0].message.content)
+    except Exception as e:
+        st.error("Error al analizar: " + str(e))
+
+# Paso 5.2 – Regenerar texto
+if st.session_state.get("redaccion") and st.button("🔁 Regenerar este subtema"):
+    texto = redactar_con_gpt(st.session_state["subtema"], "Capítulo auto-generado", referencias_seleccionadas, api_key)
+    st.session_state["redaccion"] = texto
+    citas = []
+    for ref in referencias_seleccionadas:
+        apellido = ref.split(",")[0]
+        if apellido.lower() in texto.lower():
+            citas.append(ref)
+    st.session_state["citadas"] = list(set(citas))
+
+# Paso 5.3 – Cargar nuevo subtítulo
+if st.session_state.get("redaccion") and st.button("➕ Generar nuevo subtema"):
+    st.session_state["redaccion"] = ""
+    st.session_state["citadas"] = []
+    st.session_state["subtema"] = ""
+    st.experimental_rerun()
+
+
 # Paso 6 – Exportar a Word
 if st.session_state.get("redaccion"):
     if st.button("💾 Exportar a Word"):
