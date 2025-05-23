@@ -6,15 +6,14 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from io import BytesIO
 import re
-import tiktoken
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import streamlit.components.v1 as components
 
 # --- FUNCIONES AUXILIARES ---
 def contar_tokens(texto):
-    enc = tiktoken.encoding_for_model("gpt-4")
-    return len(enc.encode(texto))
+    palabras = texto.split()
+    return int(len(palabras) * 1.33)  # Estimación aproximada de tokens
 
 def contar_palabras(texto):
     return len(texto.split())
