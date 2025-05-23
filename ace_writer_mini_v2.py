@@ -3,182 +3,156 @@ import streamlit as st
 import pandas as pd
 from docx import Document
 import openai
-import io
 import time
-import re
 
-st.set_page_config(page_title="ACE Writer Mini V2 Reparado", layout="wide")
-st.title("🛠️ ACE Writer Mini – Versión Reparada con Verificación de Columnas")
+# ───────────────────────────────────────────────
+# CONFIGURACIÓN INICIAL
+# ───────────────────────────────────────────────
+st.set_page_config(page_title="ACE Writer Mini V2", layout="wide")
+st.title("🧠 ACE Writer Mini V2 – Generación científica automatizada")
 
-# Estado
-if "clave_ok" not in st.session_state:
-    st.session_state["clave_ok"] = False
-if "referencias_completas" not in st.session_state:
-    st.session_state["referencias_completas"] = []
-if "referencias_incompletas" not in st.session_state:
-    st.session_state["referencias_incompletas"] = []
-if "subtema" not in st.session_state:
-    st.session_state["subtema"] = ""
-if "redaccion" not in st.session_state:
-    st.session_state["redaccion"] = ""
-if "citadas" not in st.session_state:
-    st.session_state["citadas"] = []
+# ───────────────────────────────────────────────
+# ESTADO INICIAL
+# ───────────────────────────────────────────────
+for key in ["clave_ok", "referencias_completas", "referencias_incompletas", "subtema", "redaccion", "citadas"]:
+    if key not in st.session_state:
+        st.session_state[key] = [] if "referencias" in key else ""
 
-# Paso 0 – API Key
+# ───────────────────────────────────────────────
+# PASO 0 – CLAVE DE OPENAI
+# ───────────────────────────────────────────────
 api_key = st.text_input("🔐 Clave OpenAI", type="password")
 if api_key.startswith("sk-"):
     st.session_state["clave_ok"] = True
     st.success("✅ Clave válida")
 
-# Paso 1 – Validar plantilla Word
-st.subheader("Paso 1 – Validar plantilla Word")
-plantilla = st.file_uploader("📂 Subí tu plantilla Word (.dotx)", type=["dotx"])
+# ───────────────────────────────────────────────
+# PASO 1 – PLANTILLA WORD
+# ───────────────────────────────────────────────
+st.subheader("Paso 1 – Cargar plantilla Word (.dotx)")
+plantilla = st.file_uploader("📂 Subí tu plantilla Word", type=["dotx"])
 if plantilla:
     doc = Document(plantilla)
-    requeridos = ['Heading 1', 'Heading 2', 'Normal', 'Reference']
+    requeridos = ["Heading 1", "Heading 2", "Normal", "Reference"]
     encontrados = [s.name for s in doc.styles]
     validacion = [{"Estilo": s, "Presente": "✅" if s in encontrados else "❌"} for s in requeridos]
     st.dataframe(pd.DataFrame(validacion))
 
-
-# Paso 2 – Subir y seleccionar referencias
-st.subheader("Paso 2 – Subir y seleccionar referencias")
-archivo_csv = st.file_uploader("📄 Archivo .csv con referencias", type=["csv"])
-refs_dict = {}
-
+# ───────────────────────────────────────────────
+# PASO 2 – CARGA DE REFERENCIAS
+# ───────────────────────────────────────────────
+st.subheader("Paso 2 – Cargar archivo de referencias (.csv)")
+archivo_csv = st.file_uploader("📄 Subí tu archivo CSV de referencias", type=["csv"])
 selected_refs = []
-completas = []
-incompletas = []
 
 if archivo_csv:
     df = pd.read_csv(archivo_csv)
-    required_cols = ["Autores", "Año", "Título del artículo", "Journal"]
-    missing_cols = [col for col in required_cols if col not in df.columns]
+    completas, incompletas = [], []
+    required = ["Autores", "Año", "Título del artículo", "Journal"]
 
-    if missing_cols:
-        st.error(f"❌ Faltan columnas obligatorias: {', '.join(missing_cols)}")
-    else:
-        for i, row in df.iterrows():
-            try:
-                ref_str = f"{row['Autores']} ({row['Año']}). {row['Título del artículo']}. {row['Journal']}."
-                if "DOI" in df.columns and pd.notna(row["DOI"]):
-                    ref_str += f" https://doi.org/{row['DOI']}"
-                if all(pd.notna(row[c]) and str(row[c]).strip() != "" for c in required_cols):
-                    completas.append((row['Autores'], ref_str))
-                else:
-                    incompletas.append((row['Autores'], ref_str))
-            except Exception as e:
-                incompletas.append((f"Error en fila {i}", str(e)))
+    for _, row in df.iterrows():
+        ref = f"{row['Autores']} ({row['Año']}). {row['Título del artículo']}. {row['Journal']}."
+        if "DOI" in df.columns and pd.notna(row["DOI"]):
+            ref += f" https://doi.org/{row['DOI']}"
+        if all(pd.notna(row.get(col, None)) for col in required):
+            completas.append(ref)
+        else:
+            incompletas.append(ref)
 
-        # Cargar todas las completas automáticamente
-        for autor, ref in completas:
-            selected_refs.append(ref)
+    # Agregar automáticamente las completas
+    selected_refs.extend(completas)
+    st.success(f"✅ {len(completas)} referencias completas agregadas automáticamente.")
+    st.warning(f"⚠️ {len(incompletas)} referencias incompletas encontradas.")
 
-        # Mostrar panel de selección para incompletas
-        st.success(f"✅ {len(completas)} referencias completas encontradas")
-        st.warning(f"⚠️ {len(incompletas)} referencias incompletas")
+    if incompletas:
+        st.markdown("### ✍️ Seleccioná manualmente si querés incluir alguna incompleta")
+        select_all = st.checkbox("Seleccionar todas las incompletas")
+        for i, ref in enumerate(incompletas):
+            if select_all or st.checkbox(ref, key=f"incomp_{i}"):
+                selected_refs.append(ref)
 
-        if incompletas:
-            st.markdown("### ✍️ Seleccioná manualmente si querés incluir alguna incompleta")
-            seleccionar_todas_incompletas = st.checkbox("Seleccionar todas las incompletas")
-            for i, (autor, ref) in enumerate(incompletas):
-                key = f"incomp_{i}_{hash(ref)}"
-                if seleccionar_todas_incompletas or st.checkbox(ref, key=key):
-                    selected_refs.append(ref)
+# ───────────────────────────────────────────────
+# PASO 3 – SUBTÍTULO
+# ───────────────────────────────────────────────
+st.subheader("Paso 3 – Ingresá el subtítulo del capítulo")
+st.session_state["subtema"] = st.text_input("✏️ Subtítulo:", value=st.session_state["subtema"])
 
-
-# Paso 3 – Escribí el subtítulo del subtema
-st.subheader("Paso 3 – Escribí el subtítulo del subtema")
-st.session_state["subtema"] = st.text_input("✏️ Subtítulo del capítulo:", value=st.session_state.get("subtema", ""))
-
-# Paso 4 – Redacción
-def redactar_con_ampliacion(subtema, referencias, api_key):
+# ───────────────────────────────────────────────
+# PASO 4 – REDACCIÓN CON GPT
+# ───────────────────────────────────────────────
+def redactar(subtema, referencias, api_key):
     client = openai.OpenAI(api_key=api_key)
     prompt = f"""Actuás como redactor científico del Proyecto eBooks ACE.
-Tu tarea es redactar el subtema titulado "{subtema}" para un eBook de entrenamiento de fuerza y potencia.
-
-📌 Condiciones:
-– Mínimo 1500 palabras
-– Cada 500 palabras: sugerí una imagen educativa
-– Usá solo estas referencias:
+Redactá el subtema titulado "{subtema}" con mínimo 1500 palabras.
+Usá estas referencias solamente:
 {chr(10).join(referencias)}
 
-Redactá en tono técnico claro, con subtítulos y ejemplos prácticos.
-Cerrá con sección de referencias en formato APA 7, solo las citadas.
+Incluí subtítulos, ejemplos prácticos y una sección final con las referencias citadas.
 """
-
-    with st.spinner("✍️ Generando texto con GPT..."):
-        import time
-        time.sleep(1)
-        r1 = client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "Sos redactor experto en ciencias del ejercicio."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.65,
-            max_tokens=5000
-        )
+    r1 = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "Sos redactor experto en ciencias del ejercicio."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.6,
+        max_tokens=5000
+    )
     texto = r1.choices[0].message.content
     if len(texto.split()) >= 1500:
         return texto
-    prompt_ampliado = f"""El siguiente texto quedó incompleto ({len(texto.split())} palabras).
-Extendelo hasta completar más de 1500 palabras, sin repetir lo anterior.
 
-TEXTO ORIGINAL:
-{texto}"""
-    with st.spinner("🔁 Solicitando ampliación automática..."):
-        r2 = client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "Sos redactor experto en ciencias del ejercicio."},
-                {"role": "user", "content": prompt_ampliado}
-            ],
-            temperature=0.65,
-            max_tokens=4000
-        )
-    return texto + "
+    ampliacion_prompt = f"Extendé el siguiente texto sin repetirlo, hasta superar 1500 palabras.\n\n{texto}"
+    r2 = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "Sos redactor experto en ciencias del ejercicio."},
+            {"role": "user", "content": ampliacion_prompt}
+        ],
+        temperature=0.6,
+        max_tokens=3000
+    )
+    return texto + "\n\n" + r2.choices[0].message.content
 
-" + r2.choices[0].message.content
-
-# Paso 5 – Generar redacción
-if st.button("🚀 Redactar capítulo completo"):
+# ───────────────────────────────────────────────
+# PASO 5 – GENERAR REDACCIÓN
+# ───────────────────────────────────────────────
+if st.button("🚀 Generar redacción"):
     if st.session_state["clave_ok"] and st.session_state["subtema"] and selected_refs:
-        texto = redactar_con_ampliacion(st.session_state["subtema"], selected_refs, api_key)
+        texto = redactar(st.session_state["subtema"], selected_refs, api_key)
         st.session_state["redaccion"] = texto
-        st.success(f"✅ Redacción generada ({len(texto.split())} palabras)")
+        st.success(f"Redacción generada. Total: {len(texto.split())} palabras.")
 
-        # Contar referencias citadas
-        citas = []
+        # Detección de citas
+        citadas = []
         for ref in selected_refs:
             apellido = ref.split(",")[0]
             if apellido in texto:
-                citas.append(ref)
-        st.session_state["citadas"] = citas
+                citadas.append(ref)
+        st.session_state["citadas"] = citadas
 
-# Paso 6 – Mostrar resultados
+# ───────────────────────────────────────────────
+# PASO 6 – MOSTRAR RESULTADO
+# ───────────────────────────────────────────────
 if st.session_state.get("redaccion"):
-    st.subheader("🧾 Redacción final")
+    st.subheader("🧾 Resultado")
     st.text_area("Texto generado", value=st.session_state["redaccion"], height=500)
-    st.markdown(f"📊 Palabras totales: **{len(st.session_state['redaccion'].split())}**")
-    st.markdown(f"📚 Referencias citadas: **{len(st.session_state['citadas'])}**")
-    if st.session_state["citadas"]:
-        st.markdown("### Referencias citadas en el texto:")
-        for ref in st.session_state["citadas"]:
-            st.markdown(f"- {ref}")
+    st.markdown(f"📊 Palabras: **{len(st.session_state['redaccion'].split())}**")
+    st.markdown(f"📚 Citas detectadas: **{len(st.session_state['citadas'])}**")
 
-# Paso 7 – Exportar a Word
+# ───────────────────────────────────────────────
+# PASO 7 – EXPORTAR
+# ───────────────────────────────────────────────
 if st.session_state.get("redaccion"):
     if st.button("💾 Exportar a Word"):
-        from docx import Document
-        doc = Document()
+        doc = Document(plantilla) if plantilla else Document()
         doc.add_heading(st.session_state["subtema"], level=1)
         doc.add_paragraph(st.session_state["redaccion"])
         doc.add_page_break()
         doc.add_heading("Referencias citadas", level=2)
         for ref in st.session_state["citadas"]:
             doc.add_paragraph(ref)
-        ruta = "/mnt/data/acewriter_final_v28.docx"
+        ruta = "/mnt/data/ace_writer_mini_v35.docx"
         doc.save(ruta)
         with open(ruta, "rb") as f:
-            st.download_button("📥 Descargar Word", data=f, file_name="ACEWriter_v28.docx")
+            st.download_button("📥 Descargar Word", data=f, file_name="ACEWriter_v35.docx")
