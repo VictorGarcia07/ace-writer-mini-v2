@@ -3,17 +3,20 @@ import streamlit as st
 import pandas as pd
 from docx import Document
 import openai
+import io
 import time
 import re
 
-st.set_page_config(page_title="ACE Writer Mini v18", layout="wide")
-st.title("ACE Writer Mini – Versión v18 Reconstruida y Estable")
+st.set_page_config(page_title="ACE Writer Mini V2 Reparado", layout="wide")
+st.title("🛠️ ACE Writer Mini – Versión Reparada con Referencias Manuales")
 
 # Estado
 if "clave_ok" not in st.session_state:
     st.session_state["clave_ok"] = False
-if "referencias" not in st.session_state:
-    st.session_state["referencias"] = []
+if "referencias_completas" not in st.session_state:
+    st.session_state["referencias_completas"] = []
+if "referencias_incompletas" not in st.session_state:
+    st.session_state["referencias_incompletas"] = []
 if "subtema" not in st.session_state:
     st.session_state["subtema"] = ""
 if "redaccion" not in st.session_state:
@@ -37,22 +40,41 @@ if plantilla:
     validacion = [{"Estilo": s, "Presente": "✅" if s in encontrados else "❌"} for s in requeridos]
     st.dataframe(pd.DataFrame(validacion))
 
-# Paso 2 – Subir referencias
-st.subheader("Paso 2 – Subir tabla de referencias (.csv)")
+# Paso 2 – Subir y seleccionar referencias
+st.subheader("Paso 2 – Subir y seleccionar referencias")
 archivo_csv = st.file_uploader("📄 Archivo .csv con referencias", type=["csv"])
-referencias_formateadas = []
 refs_dict = {}
 
 if archivo_csv:
     df = pd.read_csv(archivo_csv)
-    for i, row in df.iterrows():
-        if all(pd.notna(row[c]) and str(row[c]).strip() != "" for c in ["Autores", "Año", "Título del artículo", "Journal"]):
-            ref_str = f"{row['Autores']} ({row['Año']}). {row['Título del artículo']}. {row['Journal']}."
-            referencias_formateadas.append(ref_str)
-            refs_dict[row['Autores'].split(',')[0]] = ref_str
+    completas = []
+    incompletas = []
 
-    st.success(f"✅ {len(referencias_formateadas)} referencias cargadas correctamente.")
-    st.dataframe(df[["Autores", "Año", "Título del artículo", "Journal"]])
+    for i, row in df.iterrows():
+        ref_str = f"{row['Autores']} ({row['Año']}). {row['Título del artículo']}. {row['Journal']}. {row.get('DOI', '')}"
+        if all(pd.notna(row[c]) and str(row[c]).strip() != "" for c in ["Autores", "Año", "Título del artículo", "Journal", "DOI"]):
+            completas.append((row['Autores'], ref_str))
+        else:
+            incompletas.append((row['Autores'], ref_str))
+
+    st.session_state["referencias_completas"] = completas
+    st.session_state["referencias_incompletas"] = incompletas
+
+    st.success(f"✅ {len(completas)} referencias completas encontradas")
+    st.warning(f"⚠️ {len(incompletas)} referencias incompletas")
+
+    selected_refs = []
+    st.markdown("### ✅ Seleccioná las referencias completas a usar")
+    for autor, ref in completas:
+        if st.checkbox(ref, key=f"comp_{autor}"):
+            selected_refs.append(ref)
+
+    st.markdown("### ✍️ Seleccioná manualmente si querés incluir alguna incompleta")
+    for autor, ref in incompletas:
+        if st.checkbox(ref, key=f"incomp_{autor}"):
+            selected_refs.append(ref)
+
+    referencias_formateadas = selected_refs
 
 # Paso 3 – Subtema
 st.subheader("Paso 3 – Escribí el subtítulo del subtema")
@@ -61,7 +83,6 @@ st.session_state["subtema"] = st.text_input("✏️ Subtítulo del capítulo:", 
 # Redacción
 def redactar_con_ampliacion(subtema, referencias, api_key):
     client = openai.OpenAI(api_key=api_key)
-
     prompt = f"""Actuás como redactor científico del Proyecto eBooks ACE.
 Tu tarea es redactar el subtema titulado "{subtema}" para un eBook de entrenamiento de fuerza y potencia.
 
@@ -109,28 +130,16 @@ TEXTO ORIGINAL:
 
 # Paso 4 – Generar redacción
 if st.button("🚀 Redactar capítulo completo"):
-    if st.session_state["clave_ok"] and st.session_state["subtema"] and referencias_formateadas:
+    if st.session_state["clave_ok"] and st.session_state["subtema"] and 'referencias_formateadas' in locals():
         texto = redactar_con_ampliacion(st.session_state["subtema"], referencias_formateadas, api_key)
         st.session_state["redaccion"] = texto
         st.success(f"✅ Redacción generada ({len(texto.split())} palabras)")
-
-        # Contar referencias citadas
-        citas = []
-        for autor in refs_dict:
-            if re.search(rf"\b{autor}\b", texto):
-                citas.append(refs_dict[autor])
-        st.session_state["citadas"] = citas
 
 # Mostrar resultado
 if st.session_state["redaccion"]:
     st.subheader("🧾 Redacción final")
     st.text_area("Texto generado", value=st.session_state["redaccion"], height=500)
     st.markdown(f"📊 Palabras totales: **{len(st.session_state['redaccion'].split())}**")
-    st.markdown(f"📚 Referencias citadas: **{len(st.session_state['citadas'])}**")
-    if st.session_state["citadas"]:
-        st.markdown("### Referencias citadas en el texto:")
-        for ref in st.session_state["citadas"]:
-            st.markdown(f"- {ref}")
 
 # Exportar
 if st.session_state["redaccion"]:
@@ -138,11 +147,7 @@ if st.session_state["redaccion"]:
         doc = Document()
         doc.add_heading(st.session_state["subtema"], level=1)
         doc.add_paragraph(st.session_state["redaccion"])
-        doc.add_page_break()
-        doc.add_heading("Referencias citadas", level=2)
-        for ref in st.session_state["citadas"]:
-            doc.add_paragraph(ref)
-        ruta = "/mnt/data/acewriter_v18_final.docx"
+        ruta = "/mnt/data/ace_writer_mini_v2_reparado.docx"
         doc.save(ruta)
         with open(ruta, "rb") as f:
-            st.download_button("📥 Descargar Word", data=f, file_name="ACEWriter_v18.docx")
+            st.download_button("📥 Descargar Word", data=f, file_name="ACEWriter_v2_reparado.docx")
