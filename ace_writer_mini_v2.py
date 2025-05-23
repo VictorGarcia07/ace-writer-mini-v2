@@ -4,7 +4,6 @@ import pandas as pd
 from docx import Document
 
 st.set_page_config(page_title="ACE Writer v2 – Redacción Validada", layout="wide")
-
 st.title("✍️ ACE Writer v2 – Redacción Validada")
 
 # ----------------------------
@@ -26,7 +25,7 @@ def validar_plantilla_word(path_plantilla):
         })
     return pd.DataFrame(results)
 
-def validar_tabla_referencias_flexible(df):
+def validar_tabla_referencias_con_checkboxes(df):
     required_columns = [
         "Autores", "Año", "Título del artículo", "Journal",
         "Volumen", "Número", "Páginas", "DOI/URL",
@@ -34,30 +33,27 @@ def validar_tabla_referencias_flexible(df):
     ]
     missing_columns = [col for col in required_columns if col not in df.columns]
     if missing_columns:
-        return pd.DataFrame([{"Error": f"Faltan columnas: {', '.join(missing_columns)}"}])
+        return pd.DataFrame([{"Error": f"Faltan columnas: {', '.join(missing_columns)}"}]), [], []
 
-    results = []
-    for _, row in df.iterrows():
-        missing_critical = [col for col in ["Autores", "Año", "Título del artículo", "Journal", "DOI/URL"]
-                            if pd.isna(row[col]) or str(row[col]).strip() == ""]
-        missing_secondary = [col for col in required_columns if col not in missing_critical and 
-                             (pd.isna(row[col]) or str(row[col]).strip() == "")]
-        estado = (
-            "✅ Completa" if not missing_critical and not missing_secondary else
-            "⚠ Incompleta (faltan secundarios)" if not missing_critical else
-            "🔍 Requiere revisión manual (faltan críticos)"
-        )
-        results.append({
-            "Referencia": f"{row['Autores']} ({row['Año']}) - {row['Título del artículo']}",
-            "Estado": estado,
-            "Faltan críticos": ", ".join(missing_critical) if missing_critical else "",
-            "Faltan secundarios": ", ".join(missing_secondary) if missing_secondary else ""
-        })
+    auto_incluidas, manuales = [], []
+    indices_incluir = []
+    for i, row in df.iterrows():
+        criticos = [col for col in ["Autores", "Año", "Título del artículo", "Journal", "DOI/URL"]
+                    if pd.isna(row[col]) or str(row[col]).strip() == ""]
+        secundarios = [col for col in required_columns if col not in criticos and 
+                       (pd.isna(row[col]) or str(row[col]).strip() == "")]
+        if not criticos and not secundarios:
+            auto_incluidas.append((i + 1, row))
+        elif not criticos:
+            auto_incluidas.append((i + 1, row))
+        else:
+            manuales.append((i + 1, row))
+            indices_incluir.append(i)
 
-    return pd.DataFrame(results)
+    return None, auto_incluidas, manuales
 
 # ----------------------------
-# Flujo de ACE Writer
+# Interfaz principal
 # ----------------------------
 
 st.subheader("Paso 1️⃣ – Cargar Plantilla Word (.dotx)")
@@ -72,18 +68,35 @@ if plantilla_file:
         st.warning("La plantilla tiene errores. Subí una nueva antes de continuar.")
     else:
         st.success("Plantilla válida. Podés continuar al paso 2.")
-
         st.subheader("Paso 2️⃣ – Cargar tabla de referencias (.csv)")
         referencias_file = st.file_uploader("Subí la tabla con referencias científicas", type=["csv"])
 
         if referencias_file:
-            df_referencias = pd.read_csv(referencias_file)
-            resultado_refs = validar_tabla_referencias_flexible(df_referencias)
-            st.write("📚 Resultado de validación de referencias:")
-            st.dataframe(resultado_refs)
+            df_refs = pd.read_csv(referencias_file)
+            error_df, refs_auto, refs_manual = validar_tabla_referencias_con_checkboxes(df_refs)
 
-            if any(resultado_refs["Estado"].str.contains("Requiere revisión manual")):
-                st.warning("Hay referencias con datos críticos faltantes. Revisá antes de continuar.")
+            if error_df is not None:
+                st.error("⚠ Error en la tabla de referencias:")
+                st.dataframe(error_df)
             else:
-                st.success("Referencias válidas. Ya podés redactar tu capítulo con tranquilidad.")
-                st.button("📝 Redactar capítulo", type="primary")
+                st.success("✅ Validación automática completada")
+                st.write("📚 Referencias válidas automáticamente:")
+                if refs_auto:
+                    df_auto = pd.DataFrame([{
+                        "N°": i,
+                        "Referencia": f"{row['Autores']} ({row['Año']}) - {row['Título del artículo']}"
+                    } for i, row in refs_auto])
+                    st.dataframe(df_auto)
+
+                st.write("🛠 Referencias con validación manual:")
+                refs_incluir = []
+                if refs_manual:
+                    for i, row in refs_manual:
+                        key = f"ref_manual_{i}"
+                        incluir = st.checkbox(f"{i}. {row['Autores']} ({row['Año']}) - {row['Título del artículo']}", key=key)
+                        if incluir:
+                            refs_incluir.append((i, row))
+
+                if st.button("📝 Redactar capítulo"):
+                    total_refs = refs_auto + refs_incluir
+                    st.success(f"Redacción habilitada con {len(total_refs)} referencias.")
