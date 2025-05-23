@@ -82,18 +82,28 @@ Redactá con tono técnico claro, orientado a entrenadores, usando ejemplos prá
 """
     try:
         client = openai.OpenAI(api_key=api_key)
-        with st.spinner("Generando texto..."):
+        with st.spinner("✍️ Generando texto..."):
             r1 = client.chat.completions.create(
                 model="gpt-4",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
                 max_tokens=4096
             )
-        return r1.choices[0].message.content
-    except Exception as e:
-        st.error("Error al generar redacción: " + str(e))
-        return ""
+        base = r1.choices[0].message.content
+        if len(base.split()) >= 1500:
+            return base
 
+        extend = f"Extendé este texto sin repetir ideas hasta superar 1500 palabras:\n\n{base}"
+        with st.spinner("🔁 Ampliando..."):
+            r2 = client.chat.completions.create(
+                model="gpt-4",
+                messages=[{"role": "user", "content": extend}],
+                temperature=0.7,
+                max_tokens=3000
+            )
+        extra = r2.choices[0].message.content
+        if base in extra:
+            extra = extra.replace(base, "")
         return base + "\n\n" + extra
     except Exception as e:
         st.error("❌ Error al generar redacción: " + str(e))
@@ -105,12 +115,11 @@ if st.button("🚀 Generar redacción"):
         texto = redactar_con_gpt(st.session_state["subtema"], "Capítulo auto-generado", referencias_seleccionadas, api_key)
         st.session_state["redaccion"] = texto
         citas = []
-for ref in referencias_seleccionadas:
-    apellido = ref.split(',')[0].strip()
-    coincidencias = re.findall(r'\(' + apellido + r', \d{4}\)', texto)
-    if coincidencias:
-        citas.append(ref)
-st.session_state["citadas"] = list(set(citas))
+        for ref in referencias_seleccionadas:
+            apellido = ref.split(",")[0]
+            if apellido.lower() in texto.lower():
+                citas.append(ref)
+        st.session_state["citadas"] = list(set(citas))
 
 # Paso 5 – Mostrar texto
 if st.session_state.get("redaccion"):
@@ -118,46 +127,6 @@ if st.session_state.get("redaccion"):
     st.text_area("Texto", value=st.session_state["redaccion"], height=500)
     st.markdown(f"📊 Palabras: **{len(st.session_state['redaccion'].split())}**")
     st.markdown(f"📚 Citas detectadas: **{len(st.session_state['citadas'])}**")
-
-# Paso 5.1 – Botón para preguntar por qué se truncó
-if st.session_state.get("redaccion") and st.button("🤔 ¿Por qué se truncó este texto?"):
-    try:
-        analisis_prompt = f"""Actuás como un crítico técnico del equipo editorial de un eBook científico.
-Se te dio este texto generado por una IA con el objetivo de desarrollar un subtema de un capítulo, siguiendo normas académicas.
-
-Tu tarea es explicar por qué este texto se truncó con {len(st.session_state['redaccion'].split())} palabras.
-Explicá si fue por agotamiento de fuentes, por corte técnico, o por otra razón.
-Texto a analizar:
-""" + st.session_state["redaccion"]
-
-        r = openai.OpenAI(api_key=api_key).chat.completions.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": analisis_prompt}],
-            temperature=0,
-            max_tokens=800
-        )
-        st.info(r.choices[0].message.content)
-    except Exception as e:
-        st.error("Error al analizar: " + str(e))
-
-# Paso 5.2 – Regenerar texto
-if st.session_state.get("redaccion") and st.button("🔁 Regenerar este subtema"):
-    texto = redactar_con_gpt(st.session_state["subtema"], "Capítulo auto-generado", referencias_seleccionadas, api_key)
-    st.session_state["redaccion"] = texto
-    citas = []
-for ref in referencias_seleccionadas:
-    apellido = ref.split(',')[0].strip()
-    coincidencias = re.findall(r'\(' + apellido + r', \d{4}\)', texto)
-    if coincidencias:
-        citas.append(ref)
-st.session_state["citadas"] = list(set(citas))
-
-# Paso 5.3 – Cargar nuevo subtítulo
-if st.session_state.get("redaccion") and st.button("➕ Generar nuevo subtema"):
-    st.session_state["redaccion"] = ""
-    st.session_state["citadas"] = []
-    st.session_state["subtema"] = ""
-    st.rerun()
 
 # Paso 6 – Exportar a Word
 if st.session_state.get("redaccion"):
