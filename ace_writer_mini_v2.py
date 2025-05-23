@@ -5,126 +5,122 @@ from docx import Document
 import openai
 import time
 
-st.set_page_config(page_title="ACE Writer Mini v15", layout="wide")
-st.title("ACE Writer – Redacción GPT con ampliación automática")
+st.set_page_config(page_title="ACE Writer Mini v17", layout="wide")
+st.title("ACE Writer – Redacción profesional con ampliación automática")
 
-# Estado inicial
+# Estado
 if "clave_ok" not in st.session_state:
     st.session_state["clave_ok"] = False
 if "referencias" not in st.session_state:
     st.session_state["referencias"] = []
+if "subtema" not in st.session_state:
+    st.session_state["subtema"] = ""
 if "redaccion" not in st.session_state:
     st.session_state["redaccion"] = ""
-if "subtitulo" not in st.session_state:
-    st.session_state["subtitulo"] = ""
+if "export_ready" not in st.session_state:
+    st.session_state["export_ready"] = False
 
-# Paso 0 – API Key
-st.subheader("Paso 0 – API Key OpenAI")
-api_key = st.text_input("Clave API (formato sk-...)", type="password")
+# Paso 0 – Clave OpenAI
+api_key = st.text_input("🔐 Ingresá tu clave OpenAI", type="password")
 if api_key.startswith("sk-"):
-    st.success("✅ Clave válida")
     st.session_state["clave_ok"] = True
-else:
-    st.info("Esperando clave válida...")
+    st.success("✅ Clave válida")
 
-# Paso 1 – Plantilla
-st.subheader("Paso 1 – Validación de plantilla Word (.dotx)")
-plantilla = st.file_uploader("Subí tu plantilla Word", type=["dotx"])
-if plantilla:
-    doc = Document(plantilla)
-    required = ['Heading 1', 'Heading 2', 'Normal', 'Reference']
-    found = [s.name for s in doc.styles]
-    valid = [{"Estilo": s, "Presente": "✅" if s in found else "❌"} for s in required]
-    st.dataframe(pd.DataFrame(valid))
+# Paso 1 – Subir referencias
+st.subheader("📄 Paso 1 – Subí la tabla de referencias .csv")
+archivo_csv = st.file_uploader("Archivo .csv con referencias", type=["csv"])
+referencias_formateadas = []
 
-# Paso 2 – Referencias
-st.subheader("Paso 2 – Cargar y validar referencias")
-archivo = st.file_uploader("Subí tu archivo .csv", type=["csv"])
-refs_completas, refs_manual = [], []
-
-if archivo:
-    df = pd.read_csv(archivo)
+if archivo_csv:
+    df = pd.read_csv(archivo_csv)
     for i, row in df.iterrows():
         if all(pd.notna(row[col]) and str(row[col]).strip() != "" for col in ["Autores", "Año", "Título del artículo", "Journal"]):
-            refs_completas.append(row)
-        else:
-            refs_manual.append(row)
+            ref_str = f"{row['Autores']} ({row['Año']}). {row['Título del artículo']}. {row['Journal']}."
+            referencias_formateadas.append(ref_str)
 
-    st.success(f"✅ {len(refs_completas)} referencias validadas automáticamente")
-    st.warning(f"🛠 {len(refs_manual)} referencias con validación manual")
+# Paso 2 – Subtítulo del subtema
+st.subheader("✏️ Paso 2 – Escribí el subtítulo del subtema")
+st.session_state["subtema"] = st.text_input("Subtítulo:", value=st.session_state["subtema"])
 
-    if refs_manual:
-        for i, row in enumerate(refs_manual):
-            if st.checkbox(f"Incluir: {row['Autores']} ({row['Año']}) - {row['Título del artículo']}", key=f"ref_manual_{i}", value=True):
-                refs_completas.append(row)
-
-    st.session_state["referencias"] = refs_completas
-
-# Paso 3 – Subtítulo
-st.subheader("Paso 3 – Subtítulo del capítulo")
-st.session_state["subtitulo"] = st.text_input("Subtítulo del capítulo", value=st.session_state["subtitulo"])
-
-# Generar redacción
-def redactar(subtitulo, refs, api_key, continuar=False):
+# Paso 3 – Generar redacción
+def redaccion_completa(subtema, referencias, api_key):
     client = openai.OpenAI(api_key=api_key)
-    ref_texto = "\n".join([
-        f"{r['Autores']} ({r['Año']}). {r['Título del artículo']}. {r['Journal']}."
-        for r in refs
-    ])
-    prompt = f"""
-Actuás como redactor científico del eBook ACE.
 
-Subtema: {subtitulo}
+    base_prompt = f"""
+Actuás como redactor científico del Proyecto eBooks ACE.
+Tu tarea es redactar el subtema titulado "{subtema}", que forma parte del eBook de entrenamiento de fuerza y potencia para entrenadores.
 
-Instrucciones:
-- Mínimo 1500 palabras
-- Tono técnico-claro, dirigido a entrenadores
-- Cada 500 palabras sugerí una imagen educativa (ej: 'Sugerir imagen: curva fuerza-potencia')
-- Citá con formato APA dentro del texto
+📌 Condiciones obligatorias:
+– El texto debe tener mínimo 1500 palabras reales
+– Incluir al menos 1 recurso visual sugerido cada 500 palabras
+– Utilizar solo las referencias incluidas a continuación
+– Cerrar con una sección de referencias en formato APA 7, solo con las fuentes citadas realmente en el cuerpo
 
-Referencias base:
-{ref_texto}
+📚 Lista de referencias válidas:
+{chr(10).join(referencias)}
 
-Finalizá con sección de referencias APA 7.
+Redactá el texto directamente a continuación, en tono técnico claro, orientado a entrenadores profesionales, con ejemplos prácticos y subtítulos.
 """
-    if continuar:
-        prompt = "Continuá la redacción anterior sin repetir. " + prompt
 
-    respuesta = client.chat.completions.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "Sos redactor científico experto en entrenamiento."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.65,
-        max_tokens=5000
-    )
-    return respuesta.choices[0].message.content
+    with st.spinner("✍️ Generando redacción inicial..."):
+        time.sleep(1)
+        respuesta = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "Sos redactor experto en ciencias del ejercicio."},
+                {"role": "user", "content": base_prompt}
+            ],
+            temperature=0.65,
+            max_tokens=5000
+        )
+    texto = respuesta.choices[0].message.content
+    return texto
 
-# Paso 4 – Generación automática con ampliación opcional
-if st.button("🚀 Generar redacción completa"):
-    if st.session_state["clave_ok"] and st.session_state["referencias"]:
-        with st.spinner("Redactando con GPT..."):
-            parte1 = redactar(st.session_state["subtitulo"], st.session_state["referencias"], api_key)
-            palabras1 = len(parte1.split())
-            st.session_state["redaccion"] = parte1
+def ampliacion_si_necesaria(texto, referencias, subtema, api_key):
+    if len(texto.split()) >= 1500:
+        return texto
+    client = openai.OpenAI(api_key=api_key)
+    prompt_ext = f"""
+El siguiente texto fue generado para el subtema "{subtema}" pero es incompleto ({len(texto.split())} palabras).
+Extendelo hasta alcanzar mínimo 1500 palabras, sin repetir lo anterior. Agregá ejemplos, análisis y profundidad técnica.
 
-            if palabras1 < 1500:
-                st.info("Redacción incompleta. Solicitando ampliación automática...")
-                parte2 = redactar(st.session_state["subtitulo"], st.session_state["referencias"], api_key, continuar=True)
-                st.session_state["redaccion"] += "\n\n" + parte2
+Texto original:
+{texto}
+"""
+    with st.spinner("🔁 Solicitando ampliación automática..."):
+        time.sleep(1)
+        ampliado = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "Sos redactor experto en entrenamiento."},
+                {"role": "user", "content": prompt_ext}
+            ],
+            temperature=0.65,
+            max_tokens=4000
+        )
+    return texto + "\n\n" + ampliado.choices[0].message.content
 
-# Mostrar resultados
+# Botón para generar
+if st.button("🚀 Generar redacción"):
+    if st.session_state["clave_ok"] and st.session_state["subtema"] and referencias_formateadas:
+        redaccion_inicial = redaccion_completa(st.session_state["subtema"], referencias_formateadas, api_key)
+        texto_final = ampliacion_si_necesaria(redaccion_inicial, referencias_formateadas, st.session_state["subtema"], api_key)
+        st.session_state["redaccion"] = texto_final
+        st.session_state["export_ready"] = True
+        st.success(f"✅ Redacción lista con {len(texto_final.split())} palabras.")
+
+# Mostrar texto generado
 if st.session_state["redaccion"]:
-    st.subheader("Texto generado completo")
-    st.text_area("Redacción final", value=st.session_state["redaccion"], height=500)
-    total = len(st.session_state["redaccion"].split())
-    st.markdown(f"📊 Palabras totales: {total}")
-    if st.button("💾 Exportar a Word"):
+    st.subheader("🧾 Redacción final")
+    st.text_area("Texto generado", value=st.session_state["redaccion"], height=500)
+
+# Exportar
+if st.session_state["export_ready"]:
+    if st.button("💾 Exportar Word"):
         doc = Document()
-        doc.add_heading(st.session_state["subtitulo"], level=1)
+        doc.add_heading(st.session_state["subtema"], level=1)
         doc.add_paragraph(st.session_state["redaccion"])
-        ruta = "/mnt/data/acewriter_v15.docx"
-        doc.save(ruta)
-        with open(ruta, "rb") as f:
-            st.download_button("📥 Descargar documento", data=f, file_name="ACEWriter_v15.docx")
+        path = "/mnt/data/redaccion_final_v17.docx"
+        doc.save(path)
+        with open(path, "rb") as f:
+            st.download_button("📥 Descargar Word", data=f, file_name="ACEWriter_v17.docx")
