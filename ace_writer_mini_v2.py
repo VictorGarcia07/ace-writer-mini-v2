@@ -13,10 +13,17 @@ def contar_tokens(texto):
 def contar_palabras(texto):
     return len(texto.split())
 
+
 def validar_citas(df):
-    completas = df[df[['DOI', 'Título del artículo', 'Journal']].notnull().all(axis=1)]
+    columnas_requeridas = ['DOI', 'Título del artículo', 'Journal']
+    for col in columnas_requeridas:
+        if col not in df.columns:
+            st.error(f"🛑 Falta la columna requerida en el CSV: '{col}'")
+            return pd.DataFrame(), pd.DataFrame()
+    completas = df[df[columnas_requeridas].notnull().all(axis=1)]
     incompletas = df[~df.index.isin(completas.index)]
     return completas, incompletas
+
 
 def construir_referencias_apa(texto, df_referencias):
     citas = []
