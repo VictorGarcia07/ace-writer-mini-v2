@@ -112,7 +112,7 @@ Redactá con tono técnico claro, orientado a entrenadores, usando ejemplos prá
             return base
 
         extend = f"Extendé este texto sin repetir ideas hasta superar 1500 palabras:\n\n{base}"
-        with st.spinner("🔁 Ampliando..."):
+        with st.spinner("✍️ Generando texto..."):
             r2 = client.chat.completions.create(
                 model="gpt-4",
                 messages=[{"role": "user", "content": extend}],
