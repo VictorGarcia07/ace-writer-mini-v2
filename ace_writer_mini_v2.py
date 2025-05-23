@@ -105,12 +105,12 @@ if st.button("🚀 Generar redacción"):
         texto = redactar_con_gpt(st.session_state["subtema"], "Capítulo auto-generado", referencias_seleccionadas, api_key)
         st.session_state["redaccion"] = texto
         citas = []
-    for ref in referencias_seleccionadas:
-        apellido = ref.split(',')[0].strip()
-    coincidencias = re.findall(rf"\({apellido}, \d{{4}}\)", texto)
-        if coincidencias:
+for ref in referencias_seleccionadas:
+    apellido = ref.split(',')[0].strip()
+    coincidencias = re.findall(r'\(' + apellido + r', \d{4}\)', texto)
+    if coincidencias:
         citas.append(ref)
-    st.session_state["citadas"] = list(set(citas))
+st.session_state["citadas"] = list(set(citas))
 
 # Paso 5 – Mostrar texto
 if st.session_state.get("redaccion"):
@@ -145,12 +145,12 @@ if st.session_state.get("redaccion") and st.button("🔁 Regenerar este subtema"
     texto = redactar_con_gpt(st.session_state["subtema"], "Capítulo auto-generado", referencias_seleccionadas, api_key)
     st.session_state["redaccion"] = texto
     citas = []
-    for ref in referencias_seleccionadas:
-        apellido = ref.split(',')[0].strip()
-    coincidencias = re.findall(rf"\({apellido}, \d{{4}}\)", texto)
-        if coincidencias:
+for ref in referencias_seleccionadas:
+    apellido = ref.split(',')[0].strip()
+    coincidencias = re.findall(r'\(' + apellido + r', \d{4}\)', texto)
+    if coincidencias:
         citas.append(ref)
-    st.session_state["citadas"] = list(set(citas))
+st.session_state["citadas"] = list(set(citas))
 
 # Paso 5.3 – Cargar nuevo subtítulo
 if st.session_state.get("redaccion") and st.button("➕ Generar nuevo subtema"):
