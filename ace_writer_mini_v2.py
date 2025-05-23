@@ -74,14 +74,7 @@ if archivo_csv:
         st.success(f"✅ {len(completas)} referencias completas encontradas")
         st.warning(f"⚠️ {len(incompletas)} referencias incompletas")
 
-        
-import hashlib
-
-def safe_key(prefix, content, index):
-    return f"{prefix}_{index}_{hashlib.md5(content.encode()).hexdigest()[:6]}"
-
-selected_refs = []
-
+        selected_refs = []
         st.markdown("### ✅ Seleccioná las referencias completas a usar")
         for autor, ref in completas:
             if st.checkbox(ref, key=f"comp_{autor}"):
