@@ -70,7 +70,7 @@ def redactar_con_gpt(subtema, capitulo, referencias, api_key):
 Tu tarea es redactar el subtema titulado "{subtema}", parte del capítulo "{capitulo}" de un e-book científico.
 
 📌 Requisitos:
-– Mínimo 1500 palabras reales
+– Redactar un texto científicamente sólido y bien estructurado. El mínimo es de 1500 palabras reales, pero si el tema se agota correctamente con menos, se puede entregar así.
 – Incluir 1 sugerencia de recurso visual cada 500 palabras
 – Usar solo las referencias proporcionadas
 – Cerrar con sección de referencias APA 7, solo si fueron citadas
@@ -87,7 +87,7 @@ Redactá con tono técnico claro, orientado a entrenadores, usando ejemplos prá
                 model="gpt-4",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
-                max_tokens=4000
+                max_tokens=4096
             )
         base = r1.choices[0].message.content
         if len(base.split()) >= 1500:
