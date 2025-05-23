@@ -74,7 +74,13 @@ if archivo_csv:
         st.success(f"✅ {len(completas)} referencias completas encontradas")
         st.warning(f"⚠️ {len(incompletas)} referencias incompletas")
 
-        selected_refs = []
+        
+selected_refs = []
+if 'completas' not in locals():
+    completas = []
+if 'incompletas' not in locals():
+    incompletas = []
+
         
 st.markdown("### ✅ Seleccioná las referencias completas a usar")
 seleccionar_todas_completas = st.checkbox("Seleccionar todas las completas")
