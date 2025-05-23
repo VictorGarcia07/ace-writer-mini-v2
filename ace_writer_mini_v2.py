@@ -118,11 +118,18 @@ if st.session_state["mostrar_redaccion"]:
     st.subheader("Paso 3️⃣ – Redacción del subtema")
     st.session_state["subtitulo"] = st.text_input("✏️ Ingresá aquí el subtítulo del capítulo:", value=st.session_state["subtitulo"])
 
-    if st.button("✒️ Iniciar redacción"):
-        st.session_state["redaccion_iniciada"] = True
+    if st.button("✒️ Iniciar redacción automáticamente"):
+        with st.spinner("🤖 Generando texto base con referencias..."):
+            time.sleep(2)
+            st.session_state["contenido_redactado"] = (
+                "Aquí comenzaría la redacción automatizada basada en las referencias seleccionadas. "
+                "Este texto es solo un ejemplo simulado. "
+                "Cuando se detecta un corte por límite, se indica: [Redacción pausada, solicitando ampliación...]."
+            )
+            st.session_state["redaccion_iniciada"] = True
 
 if st.session_state["redaccion_iniciada"]:
-    st.session_state["contenido_redactado"] = st.text_area("🧾 Redactá el contenido del subtema (mínimo 1500 palabras):", height=300)
+    st.session_state["contenido_redactado"] = st.text_area("🧾 Redactá el contenido del subtema (mínimo 1500 palabras):", value=st.session_state["contenido_redactado"], height=300)
     palabras = len(st.session_state["contenido_redactado"].split())
     st.markdown(f"📊 **Palabras escritas:** {palabras} / 1500 mínimo")
 
