@@ -87,11 +87,11 @@ if archivo_csv:
                     selected_refs.append(ref)
 
 
-# Paso 3 – Subtema
+# Paso 3 – Escribí el subtítulo del subtema
 st.subheader("Paso 3 – Escribí el subtítulo del subtema")
-st.session_state["subtema"] = st.text_input("✏️ Subtítulo del capítulo:", value=st.session_state["subtema"])
+st.session_state["subtema"] = st.text_input("✏️ Subtítulo del capítulo:", value=st.session_state.get("subtema", ""))
 
-# Redacción
+# Paso 4 – Redacción
 def redactar_con_ampliacion(subtema, referencias, api_key):
     client = openai.OpenAI(api_key=api_key)
     prompt = f"""Actuás como redactor científico del Proyecto eBooks ACE.
@@ -108,6 +108,7 @@ Cerrá con sección de referencias en formato APA 7, solo las citadas.
 """
 
     with st.spinner("✍️ Generando texto con GPT..."):
+        import time
         time.sleep(1)
         r1 = client.chat.completions.create(
             model="gpt-4",
@@ -127,7 +128,6 @@ Extendelo hasta completar más de 1500 palabras, sin repetir lo anterior.
 TEXTO ORIGINAL:
 {texto}"""
     with st.spinner("🔁 Solicitando ampliación automática..."):
-        time.sleep(1)
         r2 = client.chat.completions.create(
             model="gpt-4",
             messages=[
@@ -137,28 +137,48 @@ TEXTO ORIGINAL:
             temperature=0.65,
             max_tokens=4000
         )
-    return texto + "\n\n" + r2.choices[0].message.content
+    return texto + "
 
-# Paso 4 – Generar redacción
+" + r2.choices[0].message.content
+
+# Paso 5 – Generar redacción
 if st.button("🚀 Redactar capítulo completo"):
-    if st.session_state["clave_ok"] and st.session_state["subtema"] and 'referencias_formateadas' in locals():
-        texto = redactar_con_ampliacion(st.session_state["subtema"], referencias_formateadas, api_key)
+    if st.session_state["clave_ok"] and st.session_state["subtema"] and selected_refs:
+        texto = redactar_con_ampliacion(st.session_state["subtema"], selected_refs, api_key)
         st.session_state["redaccion"] = texto
         st.success(f"✅ Redacción generada ({len(texto.split())} palabras)")
 
-# Mostrar resultado
-if st.session_state["redaccion"]:
+        # Contar referencias citadas
+        citas = []
+        for ref in selected_refs:
+            apellido = ref.split(",")[0]
+            if apellido in texto:
+                citas.append(ref)
+        st.session_state["citadas"] = citas
+
+# Paso 6 – Mostrar resultados
+if st.session_state.get("redaccion"):
     st.subheader("🧾 Redacción final")
     st.text_area("Texto generado", value=st.session_state["redaccion"], height=500)
     st.markdown(f"📊 Palabras totales: **{len(st.session_state['redaccion'].split())}**")
+    st.markdown(f"📚 Referencias citadas: **{len(st.session_state['citadas'])}**")
+    if st.session_state["citadas"]:
+        st.markdown("### Referencias citadas en el texto:")
+        for ref in st.session_state["citadas"]:
+            st.markdown(f"- {ref}")
 
-# Exportar
-if st.session_state["redaccion"]:
+# Paso 7 – Exportar a Word
+if st.session_state.get("redaccion"):
     if st.button("💾 Exportar a Word"):
-        doc = Document()
+        from docx import Document
+        doc = Document(plantilla) if plantilla else Document()
         doc.add_heading(st.session_state["subtema"], level=1)
         doc.add_paragraph(st.session_state["redaccion"])
-        ruta = "/mnt/data/ace_writer_mini_v2_reparado_columnas.py"
+        doc.add_page_break()
+        doc.add_heading("Referencias citadas", level=2)
+        for ref in st.session_state["citadas"]:
+            doc.add_paragraph(ref)
+        ruta = "/mnt/data/acewriter_final_v28.docx"
         doc.save(ruta)
         with open(ruta, "rb") as f:
-            st.download_button("📥 Descargar Word", data=f, file_name="ACEWriter_v2_reparado_columnas.docx")
+            st.download_button("📥 Descargar Word", data=f, file_name="ACEWriter_v28.docx")
