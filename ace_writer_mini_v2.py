@@ -84,8 +84,8 @@ if 'incompletas' not in locals():
         
 st.markdown("### ✅ Seleccioná las referencias completas a usar")
 seleccionar_todas_completas = st.checkbox("Seleccionar todas las completas")
-for autor, ref in completas:
-    if seleccionar_todas_completas or st.checkbox(ref, key=f"comp_{autor}"):
+for i, (autor, ref) in enumerate(completas):
+    if seleccionar_todas_completas or st.checkbox(ref, key=f"comp_{i}"):
         selected_refs.append(ref)
 
         for autor, ref in completas:
@@ -95,8 +95,8 @@ for autor, ref in completas:
         
 st.markdown("### ✍️ Seleccioná manualmente si querés incluir alguna incompleta")
 seleccionar_todas_incompletas = st.checkbox("Seleccionar todas las incompletas")
-for autor, ref in incompletas:
-    if seleccionar_todas_incompletas or st.checkbox(ref, key=f"incomp_{autor}"):
+for i, (autor, ref) in enumerate(incompletas):
+    if seleccionar_todas_incompletas or st.checkbox(ref, key=f"incomp_{i}"):
         selected_refs.append(ref)
 
         for autor, ref in incompletas:
