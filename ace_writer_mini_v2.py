@@ -137,7 +137,7 @@ TEXTO ORIGINAL:
             temperature=0.65,
             max_tokens=4000
         )
-    return texto + "\n\n" + r2.choices[0].message.content\n\n" + r2.choices[0].message.content
+    return texto + "\n\n" + r2.choices[0].message.content\n\n" + r2.choices[0].message.content\n\n" + r2.choices[0].message.content
 
 # Paso 5 – Generar redacción
 if st.button("🚀 Redactar capítulo completo"):
