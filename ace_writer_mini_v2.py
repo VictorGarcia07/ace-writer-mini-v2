@@ -1,3 +1,15 @@
+"""
+### 🛠️ Tabla de errores corregidos en versión 60
+
+| Nº | Problema identificado | Causa técnica | Solución aplicada |
+|----|------------------------|----------------|--------------------|
+| 1  | Texto duplicado | GPT sin indicación clara de no repetir ideas | Añadido a prompt: “No repetir ideas ya desarrolladas” |
+| 2  | Uso de referencias no cargadas | GPT usa fuentes externas no autorizadas | Reforzado en el prompt el uso exclusivo de referencias listadas |
+| 3  | Faltan botones post-redacción | Condicional mal estructurado | Se aseguraron los botones si `st.session_state["texto"]` existe |
+| 4  | No aparece feedback de truncado | Faltaba botón “¿Por qué se truncó?” | Se incluyó botón tras generación si texto < 1500 palabras |
+| 5  | Falta botón “Regenerar subtema” | No se preservaba el `subtema` para regeneración | Botón reactivado usando el mismo prompt y referencias previas |
+"""
+
 
 import streamlit as st
 import pandas as pd
@@ -79,6 +91,12 @@ Tu tarea es redactar el subtema titulado "{subtema}", parte del capítulo "{capi
 {chr(10).join(referencias)}
 
 Redactá con tono técnico claro, orientado a entrenadores, usando ejemplos prácticos y subtítulos jerárquicos.
+
+
+– No repetir ideas ya mencionadas
+– Usar solamente las referencias listadas arriba
+– No inventar citas o autores
+
 """
     try:
         client = openai.OpenAI(api_key=api_key)
