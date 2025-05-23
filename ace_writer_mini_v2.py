@@ -2,9 +2,22 @@
 import streamlit as st
 import pandas as pd
 from docx import Document
+import time
 
 st.set_page_config(page_title="ACE Writer v2 – Redacción Validada", layout="wide")
 st.title("✍️ ACE Writer v2 – Redacción Validada")
+
+if "mostrar_redaccion" not in st.session_state:
+    st.session_state["mostrar_redaccion"] = False
+
+if "referencias_finales" not in st.session_state:
+    st.session_state["referencias_finales"] = []
+
+if "subtitulo" not in st.session_state:
+    st.session_state["subtitulo"] = ""
+
+if "contenido_redactado" not in st.session_state:
+    st.session_state["contenido_redactado"] = ""
 
 def validar_plantilla_word(path_plantilla):
     required_styles = [
@@ -46,7 +59,6 @@ def validar_tabla_referencias_con_checkboxes(df):
 
     return None, auto_incluidas, manuales
 
-# Interfaz principal
 st.subheader("Paso 1️⃣ – Cargar Plantilla Word (.dotx)")
 plantilla_file = st.file_uploader("Subí tu plantilla Word con estilos predefinidos", type=["dotx"])
 
@@ -94,8 +106,32 @@ if plantilla_file:
                             refs_incluir.append((i, row))
 
                 if st.button("📝 Redactar capítulo"):
-                    total_refs = refs_auto + refs_incluir
-                    st.success(f"Redacción habilitada con {len(total_refs)} referencias.")
-                    subtitulo = st.text_input("✏️ Ingresá aquí el subtítulo del capítulo:")
-                    if subtitulo:
-                        st.info(f"Subtítulo capturado: **{subtitulo}**. Aquí iniciaría la redacción (simulada).")
+                    with st.spinner("🛠 Preparando entorno de redacción..."):
+                        time.sleep(1)
+                        st.session_state["mostrar_redaccion"] = True
+                        st.session_state["referencias_finales"] = refs_auto + refs_incluir
+
+# Paso 3 – Redacción
+if st.session_state["mostrar_redaccion"]:
+    st.subheader("Paso 3️⃣ – Redacción del subtema")
+    st.session_state["subtitulo"] = st.text_input("✏️ Ingresá aquí el subtítulo del capítulo:", value=st.session_state["subtitulo"])
+    st.session_state["contenido_redactado"] = st.text_area("🧾 Redactá el contenido del subtema (mínimo 1500 palabras):", height=300)
+
+    palabras = len(st.session_state["contenido_redactado"].split())
+    st.markdown(f"📊 **Palabras escritas:** {palabras} / 1500 mínimo")
+
+    if palabras < 1500:
+        st.warning("⚠ Aún no alcanzaste el mínimo de palabras.")
+    else:
+        st.success("✅ Mínimo de palabras alcanzado. Podés exportar.")
+
+    if st.session_state["contenido_redactado"]:
+        if st.button("📤 Exportar redacción"):
+            doc = Document()
+            doc.add_heading(st.session_state["subtitulo"], level=1)
+            doc.add_paragraph(st.session_state["contenido_redactado"])
+            file_path = "/mnt/data/redaccion_exportada.docx"
+            doc.save(file_path)
+            st.success("✅ Exportación completada.")
+            with open(file_path, "rb") as f:
+                st.download_button("📥 Descargar documento Word", data=f, file_name="Redaccion_ACEWriter.docx")
