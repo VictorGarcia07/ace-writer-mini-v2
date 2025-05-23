@@ -93,7 +93,7 @@ Redactá con tono técnico claro, orientado a entrenadores, usando ejemplos prá
     except Exception as e:
         st.error("Error al generar redacción: " + str(e))
         return ""
-        if base in extra:
+
             extra = extra.replace(base, "")
         return base + "\n\n" + extra
     except Exception as e:
@@ -105,10 +105,10 @@ if st.button("🚀 Generar redacción"):
     if st.session_state["clave_ok"] and st.session_state["subtema"] and referencias_seleccionadas:
         texto = redactar_con_gpt(st.session_state["subtema"], "Capítulo auto-generado", referencias_seleccionadas, api_key)
         st.session_state["redaccion"] = texto
-    citas = []
+        citas = []
     for ref in referencias_seleccionadas:
         apellido = ref.split(',')[0].strip()
-        coincidencias = re.findall(rf"\({apellido}, \d{{4}}\)", texto)
+    coincidencias = re.findall(rf"\({apellido}, \d{{4}}\)", texto)
         if coincidencias:
         citas.append(ref)
     st.session_state["citadas"] = list(set(citas))
@@ -149,7 +149,7 @@ if st.session_state.get("redaccion") and st.button("🔁 Regenerar este subtema"
     citas = []
     for ref in referencias_seleccionadas:
         apellido = ref.split(',')[0].strip()
-        coincidencias = re.findall(rf"\({apellido}, \d{{4}}\)", texto)
+    coincidencias = re.findall(rf"\({apellido}, \d{{4}}\)", texto)
         if coincidencias:
         citas.append(ref)
     st.session_state["citadas"] = list(set(citas))
