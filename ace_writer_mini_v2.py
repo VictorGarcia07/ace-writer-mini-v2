@@ -80,7 +80,14 @@ if archivo_csv:
             if st.checkbox(ref, key=f"comp_{autor}"):
                 selected_refs.append(ref)
 
-        st.markdown("### ✍️ Seleccioná manualmente si querés incluir alguna incompleta")
+        
+st.markdown("### ✍️ Seleccioná manualmente si querés incluir alguna incompleta")
+seleccionar_todas_incompletas = st.checkbox("Seleccionar todas las incompletas")
+for i, (autor, ref) in enumerate(incompletas):
+    key = f'incomp_{i}_{hash(ref)}'
+    if seleccionar_todas_incompletas or st.checkbox(ref, key=key):
+        selected_refs.append(ref)
+
         for autor, ref in incompletas:
             if st.checkbox(ref, key=f"incomp_{autor}"):
                 selected_refs.append(ref)
