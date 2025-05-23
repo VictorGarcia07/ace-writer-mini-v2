@@ -70,10 +70,10 @@ Texto completo (≥1500 palabras si el tema lo permite):"""
 # ---------------- INTERFAZ ---------------- #
 
 st.set_page_config(page_title="ACE Writer Mini – Versión Final", layout="wide")
-st.title("🧠 ACE Writer Mini – Generador de capítulos científicos")
+st.title("ACE Writer Mini – Generador de capítulos científicos")
 
 api_key = st.text_input("🔐 Clave OpenAI", type="password")
-plantilla = st.file_uploader("📂 Paso 1 – Subí tu plantilla Word (.docx)", type="docx")
+plantilla = st.file_uploader("📂 Paso 1 – Subí tu plantilla Word (.dotx)", type="dotx")
 csv = st.file_uploader("📂 Paso 2 – Subí tu archivo .csv con referencias", type="csv")
 
 if api_key and plantilla and csv:
