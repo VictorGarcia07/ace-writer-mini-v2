@@ -1,15 +1,3 @@
-"""
-### 🛠️ Tabla de errores corregidos en versión 60
-
-| Nº | Problema identificado | Causa técnica | Solución aplicada |
-|----|------------------------|----------------|--------------------|
-| 1  | Texto duplicado | GPT sin indicación clara de no repetir ideas | Añadido a prompt: “No repetir ideas ya desarrolladas” |
-| 2  | Uso de referencias no cargadas | GPT usa fuentes externas no autorizadas | Reforzado en el prompt el uso exclusivo de referencias listadas |
-| 3  | Faltan botones post-redacción | Condicional mal estructurado | Se aseguraron los botones si `st.session_state["texto"]` existe |
-| 4  | No aparece feedback de truncado | Faltaba botón “¿Por qué se truncó?” | Se incluyó botón tras generación si texto < 1500 palabras |
-| 5  | Falta botón “Regenerar subtema” | No se preservaba el `subtema` para regeneración | Botón reactivado usando el mismo prompt y referencias previas |
-"""
-
 
 import streamlit as st
 import pandas as pd
@@ -91,19 +79,6 @@ Tu tarea es redactar el subtema titulado "{subtema}", parte del capítulo "{capi
 {chr(10).join(referencias)}
 
 Redactá con tono técnico claro, orientado a entrenadores, usando ejemplos prácticos y subtítulos jerárquicos.
-
-
-– No repetir ideas ya mencionadas
-– Usar solamente las referencias listadas arriba
-– No inventar citas o autores
-
-
-
-– No repetir ideas ni secciones ya presentadas
-– Si el contenido ya fue mencionado, no volver a desarrollarlo
-– Solo incluir referencias que fueron citadas explícitamente
-– Si el texto supera 1500 palabras pero repite contenido, acortarlo
-
 """
     try:
         client = openai.OpenAI(api_key=api_key)
@@ -119,7 +94,7 @@ Redactá con tono técnico claro, orientado a entrenadores, usando ejemplos prá
             return base
 
         extend = f"Extendé este texto sin repetir ideas hasta superar 1500 palabras:\n\n{base}"
-        with st.spinner("✍️ Generando texto..."):
+        with st.spinner("🔁 Ampliando..."):
             r2 = client.chat.completions.create(
                 model="gpt-4",
                 messages=[{"role": "user", "content": extend}],
