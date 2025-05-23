@@ -2,149 +2,93 @@
 import streamlit as st
 import pandas as pd
 from docx import Document
+import openai
 import time
 
-st.set_page_config(page_title="ACE Writer v2 – Redacción Validada", layout="wide")
-st.title("✍️ ACE Writer v2 – Redacción Validada")
+st.set_page_config(page_title="ACE Writer GPT", layout="wide")
+st.title("ACE Writer GPT – Redacción automática")
 
+# Inicialización de estado
 if "mostrar_redaccion" not in st.session_state:
     st.session_state["mostrar_redaccion"] = False
-
 if "referencias_finales" not in st.session_state:
     st.session_state["referencias_finales"] = []
-
 if "subtitulo" not in st.session_state:
     st.session_state["subtitulo"] = ""
-
 if "contenido_redactado" not in st.session_state:
     st.session_state["contenido_redactado"] = ""
-
 if "redaccion_iniciada" not in st.session_state:
     st.session_state["redaccion_iniciada"] = False
 
-def validar_plantilla_word(path_plantilla):
-    required_styles = [
-        'Heading 1', 'Heading 2', 'Heading 3', 'Normal',
-        'Quote', 'Reference', 'List Bullet', 'List Number'
-    ]
-    doc = Document(path_plantilla)
-    styles = doc.styles
-    results = []
-    for style in required_styles:
-        results.append({
-            'Estilo': style,
-            '¿Presente?': '✅ Sí' if style in styles else '❌ No'
-        })
-    return pd.DataFrame(results)
+st.subheader("Paso 0 – Ingresá tu clave de OpenAI")
+api_key = st.text_input("API Key (formato sk-...):", type="password")
 
-def validar_tabla_referencias_con_checkboxes(df):
-    required_columns = [
-        "Autores", "Año", "Título del artículo", "Journal",
-        "Volumen", "Número", "Páginas", "DOI/URL",
-        "Nivel de evidencia", "Cuartil", "Subtema asignado", "¿Incluir?", "Justificación"
-    ]
-    missing_columns = [col for col in required_columns if col not in df.columns]
-    if missing_columns:
-        return pd.DataFrame([{"Error": f"Faltan columnas: {', '.join(missing_columns)}"}]), [], []
+def generar_redaccion(subtitulo, referencias, api_key):
+    openai.api_key = api_key
+    ref_texto = "\n".join([
+        f"{i+1}. {r['Autores']} ({r['Año']}). {r['Título del artículo']}. {r['Journal']}."
+        for i, (_, r) in enumerate(referencias)
+    ])
+    prompt = f"""
+Actuás como redactor científico del eBook ACE. Vas a redactar un subtema técnico en ciencias del ejercicio para entrenadores profesionales.
 
-    auto_incluidas, manuales = [], []
-    for i, row in df.iterrows():
-        criticos = [col for col in ["Autores", "Año", "Título del artículo", "Journal", "DOI/URL"]
-                    if pd.isna(row[col]) or str(row[col]).strip() == ""]
-        secundarios = [col for col in required_columns if col not in criticos and 
-                       (pd.isna(row[col]) or str(row[col]).strip() == "")]
-        if not criticos and not secundarios:
-            auto_incluidas.append((i + 1, row))
-        elif not criticos:
-            auto_incluidas.append((i + 1, row))
-        else:
-            manuales.append((i + 1, row))
+Subtema: {subtitulo}
 
-    return None, auto_incluidas, manuales
+Instrucciones:
+- Mínimo 1500 palabras.
+- Redactá en tono técnico-claro, dirigido a un coach.
+- Usá ejemplos aplicados, analogías, storytelling breve.
+- Cada 500 palabras, sugerí una imagen educativa útil (ej: 'Sugerir imagen: curva fuerza-velocidad').
+- Utilizá estas referencias como base:
 
-st.subheader("Paso 1️⃣ – Cargar Plantilla Word (.dotx)")
-plantilla_file = st.file_uploader("Subí tu plantilla Word con estilos predefinidos", type=["dotx"])
+{ref_texto}
 
-if plantilla_file:
-    plantilla_result = validar_plantilla_word(plantilla_file)
-    st.write("✅ Resultado de validación de estilos:")
-    st.dataframe(plantilla_result)
+Finalizá con una sección de referencias en formato APA 7.
+"""
 
-    if "❌ No" in plantilla_result["¿Presente?"].values:
-        st.warning("La plantilla tiene errores. Subí una nueva antes de continuar.")
-    else:
-        st.success("Plantilla válida. Podés continuar al paso 2.")
-        st.subheader("Paso 2️⃣ – Cargar tabla de referencias (.csv)")
-        referencias_file = st.file_uploader("Subí la tabla con referencias científicas", type=["csv"])
+    respuesta = openai.ChatCompletion.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "Sos redactor científico experto en ciencias del ejercicio."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.7,
+        max_tokens=3000
+    )
+    return respuesta["choices"][0]["message"]["content"]
 
-        if referencias_file:
-            df_refs = pd.read_csv(referencias_file)
-            error_df, refs_auto, refs_manual = validar_tabla_referencias_con_checkboxes(df_refs)
+# Paso 1 – Subir plantilla
+plantilla_file = st.file_uploader("Subí tu plantilla Word (.dotx)", type=["dotx"])
 
-            if error_df is not None:
-                st.error("⚠ Error en la tabla de referencias:")
-                st.dataframe(error_df)
-            else:
-                st.success("✅ Validación automática completada")
-                st.write("📚 Referencias válidas automáticamente:")
-                if refs_auto:
-                    df_auto = pd.DataFrame([{
-                        "N°": i,
-                        "Referencia": f"{row['Autores']} ({row['Año']}) - {row['Título del artículo']}"
-                    } for i, row in refs_auto])
-                    st.dataframe(df_auto)
+# Paso 2 – Subir referencias
+referencias_file = st.file_uploader("Subí tu tabla de referencias (.csv)", type=["csv"])
 
-                st.write("🛠 Referencias con validación manual:")
-                refs_incluir = []
-                select_all = st.checkbox("☑️ Seleccionar todas las referencias manuales")
-                if refs_manual:
-                    for i, row in refs_manual:
-                        key = f"ref_manual_{i}"
-                        incluir = st.checkbox(
-                            f"{i}. {row['Autores']} ({row['Año']}) - {row['Título del artículo']}",
-                            key=key,
-                            value=select_all
-                        )
-                        if incluir:
-                            refs_incluir.append((i, row))
+if plantilla_file and referencias_file:
+    df_refs = pd.read_csv(referencias_file)
+    referencias_validas = []
+    for i, row in df_refs.iterrows():
+        if all(pd.notna(row[col]) and str(row[col]).strip() != "" for col in ["Autores", "Año", "Título del artículo", "Journal", "DOI/URL"]):
+            referencias_validas.append((i + 1, row))
 
-                if st.button("📝 Redactar capítulo"):
-                    with st.spinner("🛠 Preparando entorno de redacción..."):
-                        time.sleep(1)
-                        st.session_state["mostrar_redaccion"] = True
-                        st.session_state["referencias_finales"] = refs_auto + refs_incluir
+    st.session_state["referencias_finales"] = referencias_validas
 
-if st.session_state["mostrar_redaccion"]:
-    st.subheader("Paso 3️⃣ – Redacción del subtema")
-    st.session_state["subtitulo"] = st.text_input("✏️ Ingresá aquí el subtítulo del capítulo:", value=st.session_state["subtitulo"])
+    st.session_state["subtitulo"] = st.text_input("Ingresá el subtítulo del capítulo:", value=st.session_state["subtitulo"])
 
-    if st.button("✒️ Iniciar redacción automáticamente"):
-        with st.spinner("🤖 Generando texto base con referencias..."):
-            time.sleep(2)
-            st.session_state["contenido_redactado"] = (
-                "Aquí comenzaría la redacción automatizada basada en las referencias seleccionadas. "
-                "Este texto es solo un ejemplo simulado. "
-                "Cuando se detecta un corte por límite, se indica: [Redacción pausada, solicitando ampliación...]."
-            )
+    if st.button("Iniciar redacción automática con GPT") and api_key:
+        with st.spinner("Generando redacción..."):
+            resultado = generar_redaccion(st.session_state["subtitulo"], st.session_state["referencias_finales"], api_key)
+            st.session_state["contenido_redactado"] = resultado
             st.session_state["redaccion_iniciada"] = True
 
 if st.session_state["redaccion_iniciada"]:
-    st.session_state["contenido_redactado"] = st.text_area("🧾 Redactá el contenido del subtema (mínimo 1500 palabras):", value=st.session_state["contenido_redactado"], height=300)
-    palabras = len(st.session_state["contenido_redactado"].split())
-    st.markdown(f"📊 **Palabras escritas:** {palabras} / 1500 mínimo")
+    st.subheader("Redacción generada")
+    st.text_area("Contenido:", value=st.session_state["contenido_redactado"], height=500)
 
-    if palabras < 1500:
-        st.warning("⚠ Aún no alcanzaste el mínimo de palabras.")
-    else:
-        st.success("✅ Mínimo de palabras alcanzado. Podés exportar.")
-
-    if st.session_state["contenido_redactado"]:
-        if st.button("📤 Exportar redacción"):
-            doc = Document()
-            doc.add_heading(st.session_state["subtitulo"], level=1)
-            doc.add_paragraph(st.session_state["contenido_redactado"])
-            file_path = "/mnt/data/redaccion_exportada.docx"
-            doc.save(file_path)
-            st.success("✅ Exportación completada.")
-            with open(file_path, "rb") as f:
-                st.download_button("📥 Descargar documento Word", data=f, file_name="Redaccion_ACEWriter.docx")
+    if st.button("Exportar a Word"):
+        doc = Document()
+        doc.add_heading(st.session_state["subtitulo"], level=1)
+        doc.add_paragraph(st.session_state["contenido_redactado"])
+        file_path = "/mnt/data/redaccion_acewriter_gpt.docx"
+        doc.save(file_path)
+        with open(file_path, "rb") as f:
+            st.download_button("Descargar Word", data=f, file_name="Redaccion_ACEWriter.docx")
