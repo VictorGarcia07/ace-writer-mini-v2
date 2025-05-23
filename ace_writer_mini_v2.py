@@ -77,23 +77,23 @@ if archivo_csv:
         selected_refs = []
         
 st.markdown("### ✅ Seleccioná las referencias completas a usar")
-if completas:
-    seleccionar_todas_completas = st.checkbox("Seleccionar todas las completas")
+seleccionar_todas_completas = st.checkbox("Seleccionar todas las completas")
+for autor, ref in completas:
+    if seleccionar_todas_completas or st.checkbox(ref, key=f"comp_{autor}"):
+        selected_refs.append(ref)
 
-            for autor, ref in completas:
-        if seleccionar_todas_completas or st.checkbox(ref, key=f"comp_{autor}"):
-            selected_refs.append(ref)
+        for autor, ref in completas:
             if st.checkbox(ref, key=f"comp_{autor}"):
                 selected_refs.append(ref)
 
         
 st.markdown("### ✍️ Seleccioná manualmente si querés incluir alguna incompleta")
-if incompletas:
-    seleccionar_todas_incompletas = st.checkbox("Seleccionar todas las incompletas")
+seleccionar_todas_incompletas = st.checkbox("Seleccionar todas las incompletas")
+for autor, ref in incompletas:
+    if seleccionar_todas_incompletas or st.checkbox(ref, key=f"incomp_{autor}"):
+        selected_refs.append(ref)
 
-            for autor, ref in incompletas:
-        if seleccionar_todas_incompletas or st.checkbox(ref, key=f"incomp_{autor}"):
-            selected_refs.append(ref)
+        for autor, ref in incompletas:
             if st.checkbox(ref, key=f"incomp_{autor}"):
                 selected_refs.append(ref)
 
